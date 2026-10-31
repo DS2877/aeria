@@ -98,6 +98,26 @@ final class HomeScreenshotTests: XCTestCase {
         snap("22-guide-preview-closed")
     }
 
+    /// Menu on a detail screen goes back one step, not to the sidebar.
+    func testMenuOnDetailGoesBackOneStep() {
+        let app = XCUIApplication()
+        app.launchArguments += ["-AeriaScreenshots", "-AeriaScreenshotSection", "movies"]
+        app.launch()
+        sleep(12)
+
+        let remote = XCUIRemote.shared
+        remote.press(.select)        // rail → into the Movies grid
+        sleep(2)
+        remote.press(.right)
+        sleep(2)
+        remote.press(.select)        // open the focused film
+        sleep(4)
+        snap("23-movie-detail-from-grid")
+        remote.press(.menu)          // back one step
+        sleep(3)
+        snap("24-back-on-movies-grid")
+    }
+
     private func snap(_ name: String) {
         let shot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
         shot.name = name

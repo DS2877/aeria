@@ -27,6 +27,7 @@ struct SettingsView: View {
             }
             .frame(maxWidth: .infinity)
             .appThemeBackground()
+            .menuReturnsToSidebar()
         }
         .fullScreenCover(isPresented: $showAddProvider) {
             ProviderSetupView(isDismissable: true)

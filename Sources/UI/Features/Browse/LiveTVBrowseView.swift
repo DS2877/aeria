@@ -211,6 +211,7 @@ struct LiveTVBrowseView: View {
                 }
             }
             .appThemeBackground()
+            .menuReturnsToSidebar()
             .appRouteDestinations()
         }
         .liveChannelPlayer($watching)

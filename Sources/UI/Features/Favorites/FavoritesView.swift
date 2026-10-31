@@ -80,6 +80,7 @@ struct FavoritesView: View {
                 }
             }
             .appThemeBackground()
+            .menuReturnsToSidebar()
             .appRouteDestinations()
         }
         .liveChannelPlayer($watching)

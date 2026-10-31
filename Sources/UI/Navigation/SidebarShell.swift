@@ -116,13 +116,16 @@ struct SidebarShell: View {
                 // lands on the content's last-focused element (the tvOS
                 // two-column pattern).
                 .focusSection()
-                // Menu from a section root moves focus back to the rail (the
-                // Apple TV convention). On Home, Menu is left alone so it
-                // backgrounds the app, per the HIG. A pushed detail screen's
-                // NavigationStack still gets Menu first and pops as usual.
-                .modifier(MenuReturnsToSidebar(enabled: selection != .home) {
+                // Menu on a section's *root* screen moves focus back to the
+                // rail (the Apple TV convention). Each section applies
+                // `.menuReturnsToSidebar()` to its root view, inside its
+                // NavigationStack — so on a pushed detail screen Menu pops back
+                // one step first. (Attached here, around the whole stack, it
+                // swallowed Menu on detail screens too.) On Home, Menu is left
+                // alone so it backgrounds the app, per the HIG.
+                .environment(\.returnToSidebar, selection != .home ? {
                     withAnimation(Self.railAnimation) { focusedItem = selection }
-                })
+                } : nil)
         }
         .background(Palette.canvas.ignoresSafeArea())
         .overlay(alignment: .leading) { rail }
@@ -291,19 +294,44 @@ struct SidebarShell: View {
     }
 }
 
-/// Applies `.onExitCommand` only when `enabled` — `.onExitCommand` always
-/// consumes the press, so on Home we must not attach it at all.
+/// "Menu goes back to the sidebar" — provided by the shell for every section
+/// but Home; `nil` on Home so Menu there backgrounds the app.
+private struct ReturnToSidebarKey: EnvironmentKey {
+    static let defaultValue: (() -> Void)? = nil
+}
+
+extension EnvironmentValues {
+    var returnToSidebar: (() -> Void)? {
+        get { self[ReturnToSidebarKey.self] }
+        set { self[ReturnToSidebarKey.self] = newValue }
+    }
+}
+
+/// Applies `.onExitCommand` only when there's something to do —
+/// `.onExitCommand` always consumes the press, so with no handler it must not
+/// be attached at all.
 private struct MenuReturnsToSidebar: ViewModifier {
-    let enabled: Bool
-    let action: () -> Void
+    /// Runs instead of returning to the sidebar when non-nil (e.g. the Guide
+    /// closing its preview first).
+    let first: (() -> Void)?
+    @Environment(\.returnToSidebar) private var returnToSidebar
 
     @ViewBuilder
     func body(content: Content) -> some View {
-        if enabled {
+        if let action = first ?? returnToSidebar {
             content.onExitCommand(perform: action)
         } else {
             content
         }
+    }
+}
+
+extension View {
+    /// Apply to a section's **root** view, inside its NavigationStack: Menu
+    /// there returns focus to the sidebar, while detail screens pushed on top
+    /// keep the normal Menu = back one step.
+    func menuReturnsToSidebar(first: (() -> Void)? = nil) -> some View {
+        modifier(MenuReturnsToSidebar(first: first))
     }
 }
 

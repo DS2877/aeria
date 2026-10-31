@@ -22,6 +22,7 @@ struct VODBrowseView: View {
                 }
             }
             .appThemeBackground()
+            .menuReturnsToSidebar()
             .appRouteDestinations()
         }
         // Keyed on the store's generation so a provider switch re-fetches the

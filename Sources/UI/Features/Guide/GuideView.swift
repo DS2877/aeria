@@ -96,6 +96,8 @@ struct GuideView: View {
                 }
             }
             .appThemeBackground()
+            // Menu: close the preview first; then back to the sidebar.
+            .menuReturnsToSidebar(first: previewItem != nil ? ({ stopPreview() } as () -> Void) : nil)
             .appRouteDestinations()
         }
         .task(id: models.generation) {
@@ -114,9 +116,6 @@ struct GuideView: View {
         .onChange(of: isEnabled) { _, enabled in
             if !enabled { stopPreview() }
         }
-        // Menu with a preview running closes the preview first; otherwise it
-        // falls through to the shell (back to the sidebar).
-        .onExitCommand(perform: previewItem != nil ? ({ stopPreview() } as () -> Void) : nil)
         .fullScreenCover(item: $fullScreen, onDismiss: {
             if let row = resumePreviewAfterFullScreen {
                 resumePreviewAfterFullScreen = nil

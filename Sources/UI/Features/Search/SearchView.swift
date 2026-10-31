@@ -45,6 +45,7 @@ struct SearchView: View {
                 }
             }
             .appThemeBackground()
+            .menuReturnsToSidebar()
             .appRouteDestinations()
         }
         .liveChannelPlayer($watching)

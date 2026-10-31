@@ -65,6 +65,7 @@ struct HistoryView: View {
                 }
             }
             .appThemeBackground()
+            .menuReturnsToSidebar()
             .appRouteDestinations()
         }
         // Keyed on what's actually been watched — so playing something updates
