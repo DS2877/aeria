@@ -120,8 +120,10 @@ struct VLCPlayerScreen: View {
         }
     }
 
+    /// Whether ▲ opens the options sheet: track choices, or — for films and
+    /// episodes — speed and the sleep timer.
     private var hasTracks: Bool {
-        (model?.subtitleTracks.count ?? 0) > 1 || (model?.audioTracks.count ?? 0) > 1
+        (model?.subtitleTracks.count ?? 0) > 1 || (model?.audioTracks.count ?? 0) > 1 || !item.isLive
     }
 
     /// Spoken status for VoiceOver — the custom transport has no focusable
@@ -239,6 +241,7 @@ private struct VLCTrackSheet: View {
                         }
                     }
                     if !model.item.isLive {
+                        speedSection
                         sleepSection
                     }
                 }
@@ -248,6 +251,27 @@ private struct VLCTrackSheet: View {
             }
         }
         .onExitCommand { dismiss() }
+    }
+
+    private var speedSection: some View {
+        VStack(alignment: .leading, spacing: Metrics.space2) {
+            Text("Speed").font(.dsSectionHeader).foregroundStyle(Palette.textPrimary)
+            ForEach([0.5, 0.75, 1.0, 1.25, 1.5, 2.0] as [Float], id: \.self) { speed in
+                Button {
+                    model.setRate(speed)
+                    dismiss()
+                } label: {
+                    HStack {
+                        Image(systemName: model.rate == speed ? "checkmark.circle.fill" : "circle")
+                            .foregroundStyle(model.rate == speed ? Palette.accent : Palette.textTertiary)
+                        Text(speed == 1 ? "Normal" : String(format: "%g×", speed))
+                            .font(.dsBody).foregroundStyle(Palette.textPrimary)
+                        Spacer()
+                    }
+                }
+                .buttonStyle(RowButtonStyle())
+            }
+        }
     }
 
     private var sleepSection: some View {

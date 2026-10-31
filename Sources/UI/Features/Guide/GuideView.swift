@@ -15,7 +15,17 @@ final class GuideViewModel {
     private(set) var isLoading = true
     /// The guide is capped so a 15k-channel provider doesn't build 15k rows.
     private(set) var truncated = false
-    let now = Date()
+    /// The guide's clock — LIVE badges, progress bars and the "on now" focus
+    /// target all read it. Ticked every minute while the guide is on screen.
+    private(set) var now = Date()
+    private var loadedAt = Date.distantPast
+
+    /// Advance the clock; reload the schedule when it has been a while, so the
+    /// window (−1 h … +8 h) keeps covering "now".
+    func tick() async {
+        now = Date()
+        if now.timeIntervalSince(loadedAt) > 30 * 60 { await load() }
+    }
 
     /// Most people never scroll past a few hundred channels in a guide.
     private static let rowCap = 250
@@ -39,8 +49,12 @@ final class GuideViewModel {
     }
 
     private func performLoad() async {
-        isLoading = true
+        // Keep showing the old rows while refreshing — only the first load
+        // shows the skeleton.
+        if rows.isEmpty { isLoading = true }
         defer { isLoading = false }
+        now = Date()
+        loadedAt = now
 
         let cap = Self.rowCap
         // "For you" order, EPG-carrying channels only — the store already caps it.
@@ -115,6 +129,16 @@ struct GuideView: View {
         }
         .onChange(of: isEnabled) { _, enabled in
             if !enabled { stopPreview() }
+        }
+        // Keep LIVE badges and progress current while the guide is showing.
+        .task(id: isEnabled) {
+            guard isEnabled else { return }
+            await model?.tick()
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(60))
+                guard !Task.isCancelled else { return }
+                await model?.tick()
+            }
         }
         .fullScreenCover(item: $fullScreen, onDismiss: {
             if let row = resumePreviewAfterFullScreen {

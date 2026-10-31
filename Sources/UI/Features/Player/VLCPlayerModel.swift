@@ -80,6 +80,14 @@ public final class VLCPlayerModel {
         if player.isPlaying { player.pause() } else { player.play() }
     }
 
+    /// Playback speed (1 = normal). VOD only — live can't run ahead.
+    public private(set) var rate: Float = 1
+
+    public func setRate(_ newRate: Float) {
+        rate = newRate
+        player.rate = newRate
+    }
+
     /// Start (or, with `nil`, cancel) a sleep timer.
     public func setSleepTimer(minutes: Int?) {
         sleepTask?.cancel()
