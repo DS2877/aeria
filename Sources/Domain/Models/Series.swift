@@ -120,3 +120,15 @@ public struct Episode: Identifiable, Hashable, Codable, Sendable {
         String(format: "S%02dE%02d", seasonNumber, episodeNumber)
     }
 }
+
+public extension Series {
+    /// "3 seasons" once the season tree is loaded; before that (Xtream shells
+    /// load episodes on demand) "2019 · Drama" — never "0 seasons".
+    var cardSubtitle: String {
+        if seasons.isEmpty {
+            return [year.map(String.init), genres.first?.displayName]
+                .compactMap { $0 }.joined(separator: " · ")
+        }
+        return "\(seasons.count) season\(seasons.count == 1 ? "" : "s")"
+    }
+}

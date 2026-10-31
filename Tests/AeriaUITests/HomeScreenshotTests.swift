@@ -14,7 +14,8 @@ final class HomeScreenshotTests: XCTestCase {
         app.launchArguments += ["-AeriaScreenshots"]
         app.launch()
 
-        // Cold demo import + first Home build + seeded history/ratings.
+        // Cold demo import + first Home build + seeded history/ratings. Launch
+        // focus lands on the hero's Play button, so ↓ walks the shelves.
         sleep(12)
         snap("01-home-hero")
 
@@ -26,14 +27,12 @@ final class HomeScreenshotTests: XCTestCase {
             snap(name)
         }
 
-        // Back to the top, then across the hero's buttons.
+        // Back to the top (focus should be on the hero again), then the rail.
         for _ in stops { remote.press(.up) }
         sleep(2)
-        remote.press(.right)
-        sleep(1)
-        snap("08-hero-focus-right")
+        snap("08-back-to-hero")
 
-        // The sidebar rail, expanded.
+        remote.press(.left)
         remote.press(.left)
         remote.press(.left)
         sleep(2)

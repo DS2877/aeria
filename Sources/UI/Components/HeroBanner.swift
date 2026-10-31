@@ -23,6 +23,12 @@ struct HeroBanner: View {
     @State private var playback: PlaybackItem?
     @FocusState private var focusedControl: Control?
 
+    /// The first time Home shows a hero in a session, focus lands on its main
+    /// button — the app opens on "Play", like the Apple TV app, not on a dimmed
+    /// screen behind an expanded menu. Once only, so coming back to Home from
+    /// the rail leaves focus where the viewer put it.
+    @MainActor private static var claimedLaunchFocus = false
+
     private let interval: Duration = .seconds(9)
     /// Tall enough to feel cinematic on a 1080-pt canvas while the first
     /// shelf still peeks up into the bottom fade (`shelfOverlap`).
@@ -51,6 +57,7 @@ struct HeroBanner: View {
             .clipped()
             .task(id: hero.id) { await resolveOverview(for: hero) }
             .task(id: hero.id) { await startDrift() }
+            .task { await claimLaunchFocus(for: hero) }
             .task(id: heroKey) {
                 if index >= heroes.count { index = 0 }
                 await rotate()
@@ -192,6 +199,14 @@ struct HeroBanner: View {
             for: ref.id, title: ref.title, year: ref.year, isSeries: ref.isSeries
         )
         if let text = meta?.overview { overview = text }
+    }
+
+    private func claimLaunchFocus(for hero: HomeCard) async {
+        guard !Self.claimedLaunchFocus else { return }
+        Self.claimedLaunchFocus = true
+        // A beat for the focus engine to finish its own initial pass first.
+        try? await Task.sleep(for: .milliseconds(150))
+        focusedControl = hero.kind == .movie ? .play : .info
     }
 
     private func startDrift() async {

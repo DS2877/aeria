@@ -202,7 +202,10 @@ struct HomeView: View {
                     }
 
                     LazyVStack(alignment: .leading, spacing: Metrics.shelfSpacing) {
-                        if !model.content.tonight.isEmpty {
+                        // Your own shows come first: Tonight sits just under
+                        // Continue Watching when there is one, else on top.
+                        let tonightAfterResume = model.content.rows.first?.id == HomeRowKind.continueWatching.rawValue
+                        if !model.content.tonight.isEmpty, !tonightAfterResume {
                             TonightRail(items: model.content.tonight)
                         }
 
@@ -210,6 +213,10 @@ struct HomeView: View {
                             Shelf(title: row.title, subtitle: row.subtitle, items: row.cards,
                                   headerRoute: Self.genre(for: row).map { AppRoute.genre($0) }) { card in
                                 cardView(card, in: row)
+                            }
+                            if tonightAfterResume, row.id == HomeRowKind.continueWatching.rawValue,
+                               !model.content.tonight.isEmpty {
+                                TonightRail(items: model.content.tonight)
                             }
                         }
                     }

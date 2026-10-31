@@ -215,7 +215,7 @@ struct SearchView: View {
                                action: { path.append(.movie(m.id)) })
                 case .series(let s):
                     PosterCard(title: s.title,
-                               subtitle: "\(s.seasons.count) season\(s.seasons.count == 1 ? "" : "s")",
+                               subtitle: s.cardSubtitle,
                                artworkURL: s.posterURL,
                                ref: ArtworkRef(id: s.id, title: s.title, year: s.year, isSeries: true),
                                isNew: CatalogFreshness.isNew(s.addedAt),

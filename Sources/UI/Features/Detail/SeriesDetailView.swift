@@ -173,7 +173,8 @@ struct SeriesDetailView: View {
                 MetadataLine([
                     series.year.map(String.init),
                     series.genres.first?.displayName ?? enriched?.genres?.first,
-                    "\(series.seasons.count) season\(series.seasons.count == 1 ? "" : "s")",
+                    series.seasons.isEmpty ? nil
+                        : "\(series.seasons.count) season\(series.seasons.count == 1 ? "" : "s")",
                     series.quality > .unknown ? series.quality.shortLabel : nil,
                 ])
             }

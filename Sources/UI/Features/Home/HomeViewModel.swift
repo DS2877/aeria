@@ -581,16 +581,9 @@ public final class HomeViewModel {
 
     nonisolated static func card(for series: Series) -> HomeCard {
         // Shelf series come from the store without their season tree loaded;
-        // fall back to year / genre when the count isn't known.
-        let subtitle: String
-        if series.seasons.isEmpty {
-            subtitle = [series.year.map(String.init), series.genres.first?.displayName]
-                .compactMap { $0 }.joined(separator: " · ")
-        } else {
-            subtitle = "\(series.seasons.count) season\(series.seasons.count == 1 ? "" : "s")"
-        }
-        return HomeCard(id: series.id, kind: .series, title: series.title,
-                        subtitle: subtitle, artworkURL: series.posterURL, year: series.year,
+        // `cardSubtitle` falls back to year / genre when the count isn't known.
+        HomeCard(id: series.id, kind: .series, title: series.title,
+                        subtitle: series.cardSubtitle, artworkURL: series.posterURL, year: series.year,
                         isNew: CatalogFreshness.isNew(series.addedAt))
     }
 

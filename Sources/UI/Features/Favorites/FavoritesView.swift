@@ -89,7 +89,7 @@ struct FavoritesView: View {
         }
         let series = byRecency(seriesHits, id: \.id).map { s in
             FavItem(id: s.id, title: s.title,
-                    subtitle: "\(s.seasons.count) season\(s.seasons.count == 1 ? "" : "s")",
+                    subtitle: s.cardSubtitle,
                     art: s.posterURL, route: .series(s.id),
                     ref: ArtworkRef(id: s.id, title: s.title, year: s.year, isSeries: true))
         }
