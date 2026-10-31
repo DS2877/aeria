@@ -9,13 +9,13 @@ Swedish summary for the owner at the bottom.
 
 | # | Finding | P | Status |
 |---|---|---|---|
-| S1 | **Channels never appear in results** unless the query says "channel"/"live" — searching "SVT1" finds nothing. (`SQLiteCatalogRepository.search` only adds channels when `kinds` contains `.liveChannel`.) | P1 | Batch 1 |
-| S2 | **No live search.** Results only appear after pressing Done on the full-screen keyboard; you type blind. Apple TV apps update results as you type. | P1 | Batch 1 |
-| S3 | **Can't search the TV guide.** "Rapport", "Allsvenskan", "Melodifestivalen" — the programmes on air today — return nothing. | P1 | Batch 1 |
-| S4 | **Doesn't understand Swedish.** The on-device parser only knows English ("scary", "swedish subtitles"); "skräck med svenska undertexter", "komedi under 2 timmar", "efter 2015" fall through to a literal title match and return nothing. | P1 | Batch 1 |
-| S5 | Free text must match as one exact phrase — "thrones game" or "ove man" miss. | P2 | Batch 1 |
-| S6 | All results in one mixed poster grid; channels drawn as 2:3 posters with a logo in them. Group by kind: Channels (wide cards with what's on), On TV, Movies, Series. | P2 | Batch 1 |
-| S7 | Recent searches are only remembered on Done. | P3 | Batch 1 |
+| S1 | **Channels never appear in results** unless the query says "channel"/"live" — searching "SVT1" finds nothing. (`SQLiteCatalogRepository.search` only adds channels when `kinds` contains `.liveChannel`.) | P1 | Done (CI) |
+| S2 | **No live search.** Results only appear after pressing Done on the full-screen keyboard; you type blind. Apple TV apps update results as you type. | P1 | Done (CI) |
+| S3 | **Can't search the TV guide.** "Rapport", "Allsvenskan", "Melodifestivalen" — the programmes on air today — return nothing. | P1 | Done (CI) |
+| S4 | **Doesn't understand Swedish.** The on-device parser only knows English ("scary", "swedish subtitles"); "skräck med svenska undertexter", "komedi under 2 timmar", "efter 2015" fall through to a literal title match and return nothing. | P1 | Done (CI) |
+| S5 | Free text must match as one exact phrase — "thrones game" or "ove man" miss. | P2 | Done (CI) |
+| S6 | All results in one mixed poster grid; channels drawn as 2:3 posters with a logo in them. Group by kind: Channels (wide cards with what's on), On TV, Movies, Series. | P2 | Done (CI) |
+| S7 | Recent searches are only remembered on Done. | P3 | Done (CI) |
 
 ## Home
 
@@ -23,22 +23,22 @@ Swedish summary for the owner at the bottom.
 |---|---|---|---|
 | H1 | Launched with focus in the sidebar → dimmed screen. | P1 | Fixed |
 | H2 | Tonight sat above Continue Watching. | P2 | Fixed |
-| H3 | No row for **your favourite channels** — the thing an IPTV viewer opens the app for. | P2 | Batch 2 |
-| H4 | Live Now / channel cards open a channel *info* page; you then press Play. A TV app should play on click (info via long-press). | P1 | Batch 2 |
+| H3 | No row for **your favourite channels** — the thing an IPTV viewer opens the app for. | P2 | Done (CI) |
+| H4 | Live Now / channel cards open a channel *info* page; you then press Play. A TV app should play on click (info via long-press). | P1 | Done (CI) |
 
 ## Live TV & Guide
 
 | # | Finding | P | Status |
 |---|---|---|---|
-| L1 | Clicking a channel opens its info page instead of playing it (same as H4) — two clicks to watch TV. | P1 | Batch 2 |
+| L1 | Clicking a channel opens its info page instead of playing it (same as H4) — two clicks to watch TV. | P1 | Done (CI) |
 | L2 | Guide: no way to watch without leaving the guide. | P1 | Fixed (preview + full screen) |
-| L3 | While watching live TV, changing channel needs the transport-bar menu; no "channel list" on the remote's swipe-down Info panel. | P2 | Batch 3 |
+| L3 | While watching live TV, changing channel needs the transport-bar menu; no "channel list" on the remote's swipe-down Info panel. | P2 | Done (CI) |
 
 ## Detail screens
 
 | # | Finding | P | Status |
 |---|---|---|---|
-| D1 | "More Like This": the title sits inside the focusable card, so it's clipped when the card lifts ("he Last Man on Earth"), and the first card is clipped at the left edge. | P2 | Batch 2 |
+| D1 | "More Like This": the title sits inside the focusable card, so it's clipped when the card lifts ("he Last Man on Earth"), and the first card is clipped at the left edge. | P2 | Done (CI) |
 | D2 | Series: season picker, runtimes, progress and watched marks are good. | — | OK |
 
 ## Player
@@ -61,10 +61,30 @@ Swedish summary for the owner at the bottom.
 
 | # | Finding | P | Status |
 |---|---|---|---|
-| A1 | **The interface is in English** while the product is Swedish-market only. Every label, button, empty state and error should be in Swedish. | P1 | Batch 4 |
+| A1 | **The interface is in English** while the product is Swedish-market only. Every label, button, empty state and error should be in Swedish. | P1 | Done (CI) |
 | A2 | Times follow the device region (24 h on a Swedish Apple TV) — correct. | — | OK |
 
 ---
+
+Status "Done (CI)" = built and unit-tested on GitHub's Mac, screenshots
+reviewed where the simulator can show it; not yet tried on a real TV.
+
+### What was built (2026-10-31)
+- Search: `.searchable` live search; grouped rows (Kanaler, På TV, Filmer,
+  Serier); guide search (`CatalogDatabase.searchProgrammes`, vowel-wildcard
+  `LIKE` prefilter + folded Swift match); Swedish parser vocabulary; every-word
+  free text; channels for plain text queries.
+- Channels play on click everywhere (`.liveChannelPlayer`), long-press for info
+  and favourite (`ChannelContextMenu`); Home "Dina kanaler"; Favorites shows
+  channel cards; Info-panel "Kanaler" tab while watching live.
+- More Like This captions outside the focus lift.
+- Swedish UI: all strings; fixed Swedish genre/language names;
+  `developmentLanguage: sv`, `CFBundleLocalizations: [sv]`.
+
+### Next candidates
+- Live TV "För dig" order still full-sorts per page (needs schema bump).
+- Trailers (TMDB `/videos`) — tvOS can't play YouTube; needs a plan.
+- 2-D time grid in the guide as an alternative layout.
 
 ## Sammanfattning (svenska)
 
