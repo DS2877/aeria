@@ -2,6 +2,12 @@ import Foundation
 
 /// Codable models for the `player_api.php` responses. All numeric-ish fields go
 /// through `LenientInt`/`LenientString` because panels are inconsistent.
+/// A stream-list entry that names its category — lets the import fetch lists
+/// category by category and check the panel really filtered.
+protocol XtreamCategorized {
+    var category_id: String? { get }
+}
+
 enum XtreamDTO {
 
     struct AuthResponse: Decodable {
@@ -13,12 +19,12 @@ enum XtreamDTO {
         let user_info: UserInfo?
     }
 
-    struct Category: Decodable {
+    struct Category: Decodable, Sendable {
         @LenientString var category_id: String?
         @LenientString var category_name: String?
     }
 
-    struct LiveStream: Decodable {
+    struct LiveStream: Decodable, Sendable, XtreamCategorized {
         @LenientInt var stream_id: Int?
         @LenientString var name: String?
         @LenientString var stream_icon: String?
@@ -27,7 +33,7 @@ enum XtreamDTO {
         @LenientInt var num: Int?
     }
 
-    struct VODStream: Decodable {
+    struct VODStream: Decodable, Sendable, XtreamCategorized {
         @LenientInt var stream_id: Int?
         @LenientString var name: String?
         @LenientString var stream_icon: String?
@@ -43,7 +49,7 @@ enum XtreamDTO {
         @LenientInt var episode_run_time: Int?
     }
 
-    struct SeriesListItem: Decodable {
+    struct SeriesListItem: Decodable, Sendable, XtreamCategorized {
         @LenientInt var series_id: Int?
         @LenientString var name: String?
         @LenientString var cover: String?

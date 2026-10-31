@@ -17,9 +17,14 @@ public struct HTTPClient: @unchecked Sendable {  // URLSession is thread-safe
     private let session: URLSession
     private let config: Config
 
-    public init(config: Config = .init()) {
+    /// `protocolClasses` lets tests answer requests with a stub `URLProtocol`
+    /// (a fake provider) instead of the network.
+    public init(config: Config = .init(), protocolClasses: [AnyClass] = []) {
         self.config = config
         let configuration = URLSessionConfiguration.ephemeral
+        if !protocolClasses.isEmpty {
+            configuration.protocolClasses = protocolClasses + (configuration.protocolClasses ?? [])
+        }
         configuration.timeoutIntervalForRequest = config.timeout
         configuration.timeoutIntervalForResource = config.timeout * 4
         configuration.waitsForConnectivity = false

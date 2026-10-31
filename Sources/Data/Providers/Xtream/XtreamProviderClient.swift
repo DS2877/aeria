@@ -88,9 +88,8 @@ public struct XtreamProviderClient: ProviderClient {
     // MARK: - Per-list fetch + map (DTO array released on return)
 
     private func fetchLiveChannels() async throws -> [RawChannel] {
-        async let catsF = categories(.liveCategories)
-        let live = try await fetch([XtreamDTO.LiveStream].self, .liveStreams)
-        let cats = await catsF
+        let (live, cats) = try await fetchMarketScoped(XtreamDTO.LiveStream.self,
+                                                       list: .liveStreams, categories: .liveCategories)
         return live.enumerated().compactMap { index, s in
             guard let id = s.stream_id, let name = s.name else { return nil }
             return RawChannel(
@@ -106,9 +105,8 @@ public struct XtreamProviderClient: ProviderClient {
     }
 
     private func fetchMovies() async throws -> [RawVODItem] {
-        async let catsF = categories(.vodCategories)
-        let vod = try await fetch([XtreamDTO.VODStream].self, .vodStreams)
-        let cats = await catsF
+        let (vod, cats) = try await fetchMarketScoped(XtreamDTO.VODStream.self,
+                                                      list: .vodStreams, categories: .vodCategories)
         return vod.compactMap { v in
             guard let id = v.stream_id, let name = v.name else { return nil }
             return RawVODItem(
@@ -129,9 +127,8 @@ public struct XtreamProviderClient: ProviderClient {
     }
 
     private func fetchSeriesShells() async throws -> [RawSeriesShell] {
-        async let catsF = categories(.seriesCategories)
-        let series = try await fetch([XtreamDTO.SeriesListItem].self, .series)
-        let cats = await catsF
+        let (series, cats) = try await fetchMarketScoped(XtreamDTO.SeriesListItem.self,
+                                                         list: .series, categories: .seriesCategories)
         return series.compactMap { s in
             guard let id = s.series_id, let name = s.name else { return nil }
             return RawSeriesShell(
@@ -202,6 +199,79 @@ public struct XtreamProviderClient: ProviderClient {
 
     private func fetch<T: Decodable>(_ type: T.Type, _ action: XtreamAPI.Action) async throws -> T {
         try await http.decode(T.self, from: api.url(action))
+    }
+
+    // MARK: - Category-first (Swedish market)
+
+    /// A stream list, downloading only the Swedish-market categories when that
+    /// saves real work.
+    ///
+    /// A big provider's lists are mostly foreign-market sections (Arabic,
+    /// Turkish, Indian…) that the import throws away anyway. Fetching the small
+    /// category list first and then only the kept categories (`&category_id=`)
+    /// cuts the download, decode time and memory roughly by that share.
+    ///
+    /// Falls back to the single bulk request whenever per-category fetching
+    /// can't be trusted or wouldn't pay: no categories, nothing foreign to
+    /// skip, a very long kept list, any request failing — or the panel
+    /// ignoring `category_id` (it would hand back the whole list per call).
+    private func fetchMarketScoped<T: Decodable & Sendable & XtreamCategorized>(
+        _ type: T.Type, list: XtreamAPI.Action, categories categoriesAction: XtreamAPI.Action
+    ) async throws -> (items: [T], categories: [String: String]) {
+        let cats = await categories(categoriesAction)
+        let kept = cats.filter { !RelevanceFilter.isForeignSection($0.value) }.map(\.key).sorted()
+        let dropped = cats.count - kept.count
+
+        let worthIt = !cats.isEmpty && !kept.isEmpty
+            && Double(dropped) >= Double(cats.count) * 0.2
+            && kept.count <= Self.maxScopedCategories
+        if worthIt, let scoped = await fetchByCategory(T.self, list: list, categoryIDs: kept) {
+            AppLog.provider.info("Xtream \(list.rawValue, privacy: .public): \(kept.count) of \(cats.count) categories, \(scoped.count) items.")
+            return (scoped, cats)
+        }
+        let bulk = try await fetch([T].self, list)
+        return (bulk, cats)
+    }
+
+    /// Above this many kept categories, one bulk request beats hundreds of
+    /// small ones.
+    private static let maxScopedCategories = 160
+
+    /// `nil` = don't trust it; use the bulk endpoint instead.
+    private func fetchByCategory<T: Decodable & Sendable & XtreamCategorized>(
+        _ type: T.Type, list: XtreamAPI.Action, categoryIDs: [String]
+    ) async -> [T]? {
+        guard let first = categoryIDs.first else { return nil }
+        // Probe one category: a panel that ignores `category_id` returns other
+        // categories' items too — then every call would be the full list.
+        guard let probe = try? await http.decode([T].self, from: api.url(list, categoryID: first)) else {
+            return nil
+        }
+        if probe.contains(where: { $0.category_id != nil && $0.category_id != first }) { return nil }
+
+        var all = probe
+        var remaining = categoryIDs.dropFirst()[...]
+        // A few at a time — panels throttle bursts, and each response is small.
+        while !remaining.isEmpty {
+            let batch = Array(remaining.prefix(4))
+            remaining = remaining.dropFirst(batch.count)
+            let results: [[T]]? = await withTaskGroup(of: [T]?.self) { group in
+                for id in batch {
+                    group.addTask { [http = self.http, api = self.api] in
+                        try? await http.decode([T].self, from: api.url(list, categoryID: id))
+                    }
+                }
+                var collected: [[T]] = []
+                for await result in group {
+                    guard let items = result else { return nil }
+                    collected.append(items)
+                }
+                return collected
+            }
+            guard let results else { return nil }      // any failure → bulk
+            for items in results { all += items }
+        }
+        return all
     }
 
     private func categories(_ action: XtreamAPI.Action) async -> [String: String] {

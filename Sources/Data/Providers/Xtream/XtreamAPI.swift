@@ -48,6 +48,10 @@ struct XtreamAPI: Sendable {
 
     var authURL: URL { apiURL(action: nil) }
     func url(_ action: Action) -> URL { apiURL(action: action) }
+    /// A stream list limited to one category (`&category_id=`).
+    func url(_ action: Action, categoryID: String) -> URL {
+        apiURL(action: action, extra: [URLQueryItem(name: "category_id", value: categoryID)])
+    }
     func seriesInfoURL(seriesID: String) -> URL {
         apiURL(action: .seriesInfo, extra: [URLQueryItem(name: "series_id", value: seriesID)])
     }
