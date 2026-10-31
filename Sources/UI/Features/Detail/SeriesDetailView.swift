@@ -33,7 +33,8 @@ struct SeriesDetailView: View {
             PlayerScreen(
                 item: item,
                 preferredAudio: env.preferences.preferences.preferredAudioLanguages,
-                preferredSubtitle: env.preferences.preferences.preferredSubtitleLanguage
+                preferredSubtitle: env.preferences.preferences.preferredSubtitleLanguage,
+                nextItem: { await env.nextEpisodePlayback(after: $0) }
             ) { id, kind, position, duration in
                 env.recordProgress(id: id, kind: kind, position: position, duration: duration)
             }
@@ -42,16 +43,8 @@ struct SeriesDetailView: View {
             guard let tmdbID = enriched?.tmdbID, tmdbID > 0, let season = selectedSeason else { return }
             episodeStills = await env.metadata.episodeStills(seriesTMDBID: tmdbID, season: season)
         }
-        .onChange(of: playback) { previous, current in
-            // Auto-play the next episode when one just finished.
-            guard current == nil, let finished = previous,
-                  env.preferences.preferences.autoPlayNextEpisode,
-                  env.watchProgress.progress(for: finished.id)?.isFinished == true,
-                  let series,
-                  let next = nextEpisode(in: series, after: finished.id)
-            else { return }
-            playback = env.playback(forEpisode: next, seriesTitle: series.title)
-        }
+        // Next-episode autoplay happens inside the player now (Up Next
+        // countdown via `nextItem`), so there's no close-and-reopen here.
     }
 
     private func load() async {
@@ -83,16 +76,6 @@ struct SeriesDetailView: View {
             .sorted { $0.number < $1.number }
             .compactMap { $0.episodes.min(by: { $0.episodeNumber < $1.episodeNumber }) }
             .first
-    }
-
-    private func nextEpisode(in series: Series, after episodeID: CatalogID) -> Episode? {
-        let ordered = series.seasons
-            .sorted { $0.number < $1.number }
-            .flatMap { $0.episodes.sorted { $0.episodeNumber < $1.episodeNumber } }
-        guard let idx = ordered.firstIndex(where: { $0.id == episodeID }), idx + 1 < ordered.count else {
-            return nil
-        }
-        return ordered[idx + 1]
     }
 
     /// What the primary button should play when nothing is mid-watch: the first

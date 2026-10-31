@@ -121,13 +121,19 @@ struct SidebarShell: View {
         .background(Palette.canvas.ignoresSafeArea())
         .overlay(alignment: .leading) { rail }
         .environment(models)
-        .defaultFocus($focusedItem, .home)
         .onChange(of: env.activeProvider?.id) { _, _ in
             // A different library — nothing the old models hold is valid.
             models.reset()
             visited = [selection]
         }
-        .onChange(of: focusedItem) { _, item in
+        .onChange(of: focusedItem) { old, item in
+            // Backstop for the default-focus rule above: arriving in the rail
+            // from the content on any item but the current section snaps to
+            // the current section instead of switching screens.
+            if old == nil, let item, item != selection {
+                focusedItem = selection
+                return
+            }
             // Focus-driven, the way the Apple TV app works: moving up/down the
             // rail switches the content live. Cheap now that panels stay mounted.
             if let item {
@@ -178,6 +184,11 @@ struct SidebarShell: View {
         .shadow(color: .black.opacity(railExpanded ? 0.6 : 0), radius: 44, x: 14)
         .animation(Self.railAnimation, value: railExpanded)
         .focusSection()
+        // Entering the rail always lands on the section you're *in* — not on
+        // whichever item happens to sit level with the focused card (tvOS's
+        // geometric default). `.userInitiated` makes this apply on every
+        // ← into the rail, not just the first focus pass.
+        .defaultFocus($focusedItem, selection, priority: .userInitiated)
     }
 
     @ViewBuilder

@@ -22,6 +22,11 @@ public struct PlaybackItem: Identifiable, Hashable, Sendable {
     /// waiting for the player to report duration.
     public let durationSeconds: Double?
 
+    /// Plot / episode summary for the player's Info panel.
+    public let synopsis: String?
+    /// Poster, still or logo for the player's Info panel.
+    public let artworkURL: URL?
+
     public init(
         id: CatalogID,
         kind: ContentKind,
@@ -30,7 +35,9 @@ public struct PlaybackItem: Identifiable, Hashable, Sendable {
         subtitle: String? = nil,
         isLive: Bool = false,
         resumeAt: Double? = nil,
-        durationSeconds: Double? = nil
+        durationSeconds: Double? = nil,
+        synopsis: String? = nil,
+        artworkURL: URL? = nil
     ) {
         self.id = id
         self.kind = kind
@@ -40,5 +47,7 @@ public struct PlaybackItem: Identifiable, Hashable, Sendable {
         self.isLive = isLive
         self.resumeAt = resumeAt
         self.durationSeconds = durationSeconds
+        self.synopsis = synopsis
+        self.artworkURL = artworkURL
     }
 }

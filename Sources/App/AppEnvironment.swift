@@ -443,7 +443,9 @@ public final class AppEnvironment {
                 .compactMap { $0 }.joined(separator: " · "),
             isLive: false,
             resumeAt: resume?.isResumable == true ? resume?.positionSeconds : nil,
-            durationSeconds: movie.durationMinutes.map { Double($0 * 60) }
+            durationSeconds: movie.durationMinutes.map { Double($0 * 60) },
+            synopsis: movie.synopsis,
+            artworkURL: movie.posterURL ?? movie.backdropURL
         )
     }
 
@@ -457,8 +459,27 @@ public final class AppEnvironment {
             subtitle: "\(episode.code) · \(episode.title)",
             isLive: false,
             resumeAt: resume?.isResumable == true ? resume?.positionSeconds : nil,
-            durationSeconds: episode.durationMinutes.map { Double($0 * 60) }
+            durationSeconds: episode.durationMinutes.map { Double($0 * 60) },
+            synopsis: episode.overview,
+            artworkURL: episode.stillURL
         )
+    }
+
+    /// The episode after `finished`, ready to play — or `nil` when it isn't an
+    /// episode, it was the last one, or the viewer turned autoplay off. Feeds
+    /// the player's in-place "Up Next" countdown.
+    public func nextEpisodePlayback(after finished: PlaybackItem) async -> PlaybackItem? {
+        guard finished.kind == .series, !finished.isLive,
+              preferences.preferences.autoPlayNextEpisode,
+              let episode = await repository.episode(id: finished.id),
+              let series = await ensureEpisodes(forSeries: episode.seriesID)
+        else { return nil }
+        let ordered = series.seasons
+            .sorted { $0.number < $1.number }
+            .flatMap { $0.episodes.sorted { $0.episodeNumber < $1.episodeNumber } }
+        guard let index = ordered.firstIndex(where: { $0.id == episode.id }),
+              index + 1 < ordered.count else { return nil }
+        return playback(forEpisode: ordered[index + 1], seriesTitle: series.title)
     }
 
     public func playback(forChannel id: CatalogID) async -> PlaybackItem? {
@@ -470,7 +491,8 @@ public final class AppEnvironment {
             url: channel.streamURL,
             title: channel.name,
             subtitle: channel.category,
-            isLive: true
+            isLive: true,
+            artworkURL: channel.logoURL
         )
     }
 

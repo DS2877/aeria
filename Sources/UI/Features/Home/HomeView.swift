@@ -44,7 +44,8 @@ struct HomeView: View {
             PlayerScreen(
                 item: item,
                 preferredAudio: environment.preferences.preferences.preferredAudioLanguages,
-                preferredSubtitle: environment.preferences.preferences.preferredSubtitleLanguage
+                preferredSubtitle: environment.preferences.preferences.preferredSubtitleLanguage,
+                nextItem: { await environment.nextEpisodePlayback(after: $0) }
             ) { id, kind, position, duration in
                 environment.recordProgress(id: id, kind: kind, position: position, duration: duration)
             }

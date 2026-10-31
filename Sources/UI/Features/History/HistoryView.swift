@@ -74,7 +74,8 @@ struct HistoryView: View {
             PlayerScreen(
                 item: item,
                 preferredAudio: env.preferences.preferences.preferredAudioLanguages,
-                preferredSubtitle: env.preferences.preferences.preferredSubtitleLanguage
+                preferredSubtitle: env.preferences.preferences.preferredSubtitleLanguage,
+                nextItem: { await env.nextEpisodePlayback(after: $0) }
             ) { id, kind, position, duration in
                 env.recordProgress(id: id, kind: kind, position: position, duration: duration)
             }

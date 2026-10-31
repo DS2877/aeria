@@ -9,6 +9,8 @@ struct VLCPlayerScreen: View {
     var preferredAudio: [Language] = []
     var preferredSubtitle: Language? = nil
     let onProgress: @MainActor (CatalogID, ContentKind, Double, Double) -> Void
+    /// Replaces the default "close at the end" — the host rolls into Up Next.
+    var onFinished: (@MainActor () -> Void)? = nil
 
     @Environment(\.dismiss) private var dismiss
     @State private var model: VLCPlayerModel?
@@ -105,7 +107,7 @@ struct VLCPlayerScreen: View {
                                    preferredSubtitle: preferredSubtitle) { played, position, duration in
                 onProgress(played.id, played.kind, position, duration)
             }
-            m.onFinished = { dismiss() }
+            m.onFinished = { if let onFinished { onFinished() } else { dismiss() } }
             m.onSleepFired = { dismiss() }
             model = m
             surfaceFocused = true

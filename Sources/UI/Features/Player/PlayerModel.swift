@@ -1,6 +1,7 @@
 import Foundation
 import AVFoundation
 import Observation
+import UIKit
 
 /// Owns the `AVPlayer` lifecycle for one `PlaybackItem`: start/resume, periodic
 /// progress reporting, and failure detection mapped to a friendly message.
@@ -97,6 +98,7 @@ public final class PlayerModel {
         // Populate the tvOS Info panel / "What's playing" — AVPlayerViewController
         // reads this off the item, so it never fights our values.
         currentItem.externalMetadata = externalMetadata()
+        loadInfoPanelArtwork(for: currentItem)
 
         statusObservation = currentItem.observe(\.status, options: [.new]) { [weak self] observedItem, _ in
             let status = observedItem.status
@@ -303,10 +305,31 @@ public final class PlayerModel {
             return item
         }
         var items = [entry(.commonIdentifierTitle, activeItem.title)]
-        if let subtitle = activeItem.subtitle, !subtitle.isEmpty {
-            items.append(entry(.commonIdentifierDescription, subtitle))
+        // The Info panel's body: "S02E03 · Infected" over the plot, when we
+        // have both.
+        let body = [activeItem.subtitle, activeItem.synopsis]
+            .compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: "\n\n")
+        if !body.isEmpty {
+            items.append(entry(.commonIdentifierDescription, body))
         }
         return items
+    }
+
+    /// Poster / still / logo for the Info panel, added once it's loaded (from
+    /// the image cache, usually already warm). Never blocks playback.
+    private func loadInfoPanelArtwork(for playerItem: AVPlayerItem) {
+        guard let url = activeItem.artworkURL else { return }
+        Task { [weak self] in
+            guard let image = await ImageCache.shared.image(for: url, size: .poster),
+                  let data = image.jpegData(compressionQuality: 0.85),
+                  let self, self.player.currentItem === playerItem else { return }
+            let artwork = AVMutableMetadataItem()
+            artwork.identifier = .commonIdentifierArtwork
+            artwork.value = data as NSData
+            artwork.dataType = kCMMetadataBaseDataType_JPEG as String
+            artwork.extendedLanguageTag = "und"
+            playerItem.externalMetadata = self.externalMetadata() + [artwork]
+        }
     }
 
     private func resolvedDuration() -> Double {

@@ -18,10 +18,21 @@ struct PlayerScreen: View {
     /// The viewer's language preferences, applied to the stream's tracks.
     var preferredAudio: [Language] = []
     var preferredSubtitle: Language? = nil
+    /// The episode to roll into when this one ends (see
+    /// `AppEnvironment.nextEpisodePlayback`). `nil` → the player closes at the end.
+    var nextItem: (@MainActor (PlaybackItem) async -> PlaybackItem?)? = nil
     let onProgress: @MainActor (CatalogID, ContentKind, Double, Double) -> Void
 
     @Environment(\.dismiss) private var dismiss
     @State private var model: PlayerModel?
+    /// What's playing now — `item` until an Up Next hand-off replaces it.
+    @State private var current: PlaybackItem?
+    /// The episode counting down to start, and the seconds left.
+    @State private var upNext: PlaybackItem?
+    @State private var upNextSeconds = 0
+    private static let upNextDelay = 8
+
+    private var playing: PlaybackItem { current ?? item }
     @State private var currentLineup: ChannelLineup?
     @State private var showChannelPanel = false
     @State private var banner: ChannelBanner.Info?
@@ -30,17 +41,71 @@ struct PlayerScreen: View {
         (currentLineup?.channels.count ?? 0) > 1 && makePlayback != nil
     }
 
-    @ViewBuilder
     var body: some View {
-        switch PlaybackEngine.choose(for: item.url) {
-        case .vlc:
-            VLCPlayerScreen(item: item,
-                            preferredAudio: preferredAudio,
-                            preferredSubtitle: preferredSubtitle,
-                            onProgress: onProgress)
-        case .system:
-            systemBody
+        ZStack {
+            switch PlaybackEngine.choose(for: playing.url) {
+            case .vlc:
+                VLCPlayerScreen(item: playing,
+                                preferredAudio: preferredAudio,
+                                preferredSubtitle: preferredSubtitle,
+                                onProgress: onProgress,
+                                onFinished: { [finished = playing] in handleFinished(finished) })
+                    .id(playing.id)
+            case .system:
+                systemBody
+            }
+
+            if let next = upNext {
+                UpNextCard(item: next, seconds: upNextSeconds, total: Self.upNextDelay)
+                    .padding(Metrics.screenMargin)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                    .transition(.opacity.combined(with: .move(edge: .trailing)))
+                    .allowsHitTesting(false)
+            }
         }
+        .animation(.easeOut(duration: 0.35), value: upNext?.id)
+        .task(id: upNext?.id) {
+            guard let next = upNext else { return }
+            while upNextSeconds > 0 {
+                try? await Task.sleep(for: .seconds(1))
+                if Task.isCancelled { return }
+                upNextSeconds -= 1
+            }
+            upNext = nil
+            advance(to: next)
+        }
+    }
+
+    /// The current item played to its end: count down into the next episode
+    /// in place (no dismiss, no detail-screen flash), or close when there's
+    /// nothing after it.
+    private func handleFinished(_ finished: PlaybackItem) {
+        guard let nextItem else { dismiss(); return }
+        Task { @MainActor in
+            if let next = await nextItem(finished) {
+                upNextSeconds = Self.upNextDelay
+                upNext = next
+            } else {
+                dismiss()
+            }
+        }
+    }
+
+    private func advance(to next: PlaybackItem) {
+        let from = PlaybackEngine.choose(for: playing.url)
+        let to = PlaybackEngine.choose(for: next.url)
+        if from == .system, to == .system, let model {
+            // Same AVPlayer, new item — no black flash.
+            model.switchTo(next)
+            current = next
+            return
+        }
+        if from == .system {
+            // Handing over to VLC (an MKV episode after an HLS one, say).
+            model?.teardown()
+            model = nil
+        }
+        current = next
     }
 
     private var systemBody: some View {
@@ -69,7 +134,8 @@ struct PlayerScreen: View {
                             next: { zap(offset: 1) },
                             previous: { zap(offset: -1) }
                         ) : nil,
-                        onSleep: item.isLive ? nil : { model.setSleepTimer(minutes: $0) }
+                        onSleep: item.isLive ? nil : { model.setSleepTimer(minutes: $0) },
+                        allowsSpeeds: !item.isLive
                     )
                     .ignoresSafeArea()
 
@@ -111,12 +177,15 @@ struct PlayerScreen: View {
         .onAppear {
             currentLineup = lineup
             if model == nil {
-                let m = PlayerModel(item: item,
+                let m = PlayerModel(item: playing,
                                     preferredAudio: preferredAudio,
                                     preferredSubtitle: preferredSubtitle) { played, position, duration in
                     onProgress(played.id, played.kind, position, duration)
                 }
-                m.onFinished = { dismiss() }
+                m.onFinished = { [weak m] in
+                    guard let m else { return }
+                    handleFinished(m.activeItem)
+                }
                 m.onSleepFired = { dismiss() }
                 model = m
                 m.play()
@@ -152,6 +221,54 @@ struct PlayerScreen: View {
     private func canRetry(_ error: ProviderError) -> Bool {
         if case .streamNotSupported = error { return false }
         return true
+    }
+}
+
+/// "Up Next" — the episode the player rolls into when this one ends, with a
+/// ring that drains over the countdown. Menu during the countdown leaves the
+/// player as usual.
+private struct UpNextCard: View {
+    let item: PlaybackItem
+    let seconds: Int
+    let total: Int
+
+    var body: some View {
+        HStack(spacing: Metrics.space3) {
+            ZStack {
+                Circle().stroke(.white.opacity(0.22), lineWidth: 5)
+                Circle()
+                    .trim(from: 0, to: CGFloat(seconds) / CGFloat(max(total, 1)))
+                    .stroke(.white, style: StrokeStyle(lineWidth: 5, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
+                    .animation(.linear(duration: 1), value: seconds)
+                Text("\(seconds)")
+                    .font(.system(size: 26, weight: .semibold))
+                    .monospacedDigit()
+            }
+            .frame(width: 66, height: 66)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("UP NEXT")
+                    .font(.dsTag)
+                    .tracking(Metrics.eyebrowTracking)
+                    .foregroundStyle(.white.opacity(0.6))
+                Text(item.title)
+                    .font(.dsCardTitle)
+                    .lineLimit(1)
+                if let subtitle = item.subtitle, !subtitle.isEmpty {
+                    Text(subtitle)
+                        .font(.dsCaption)
+                        .foregroundStyle(.white.opacity(0.75))
+                        .lineLimit(1)
+                }
+            }
+            .frame(maxWidth: 520, alignment: .leading)
+        }
+        .foregroundStyle(.white)
+        .padding(Metrics.space3)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Up next: \(item.title), \(item.subtitle ?? ""), starts in \(seconds) seconds")
     }
 }
 
@@ -206,6 +323,8 @@ struct SystemPlayerView: UIViewControllerRepresentable {
     var channelActions: ChannelActions? = nil
     /// Set a sleep timer (minutes), or `nil` to turn it off. VOD only.
     var onSleep: ((Int?) -> Void)? = nil
+    /// Offer playback speeds (VOD only).
+    var allowsSpeeds = false
 
     struct ChannelActions {
         var openList: () -> Void
@@ -229,6 +348,9 @@ struct SystemPlayerView: UIViewControllerRepresentable {
         controller.player = player
         controller.videoGravity = .resizeAspect
         controller.showsPlaybackControls = true
+        // 0.5×–2× in the transport bar for films and episodes (live can't
+        // change speed, so the menu would only confuse there).
+        controller.speeds = allowsSpeeds ? AVPlaybackSpeed.systemDefaultSpeeds : []
 
         let coordinator = context.coordinator
         var items: [UIMenuElement] = []
