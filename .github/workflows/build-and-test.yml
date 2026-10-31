@@ -34,7 +34,7 @@ jobs:
         id: sim
         run: |
           xcrun simctl list devices available
-          UDID=$(xcrun simctl list devices available | grep -E "Apple TV" | grep -v "Apple TV 4K \(1st" | tail -1 | grep -oE '[0-9A-F-]{36}')
+          UDID=$(xcrun simctl list devices available | grep -F "Apple TV 4K (3rd generation) (" | grep -vF "1080p" | tail -1 | grep -oE '[0-9A-F-]{36}' || true)
           if [ -z "$UDID" ]; then echo "No Apple TV simulator on this runner" >&2; exit 1; fi
           echo "udid=$UDID" >> "$GITHUB_OUTPUT"
 
