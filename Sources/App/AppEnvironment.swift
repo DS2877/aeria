@@ -143,6 +143,17 @@ public final class AppEnvironment {
 
     public static func live() -> AppEnvironment { AppEnvironment() }
 
+    /// App launch. Only the TMDB key is wired before the catalog check — Home
+    /// paints its cached snapshot on the very first frame and its cards ask
+    /// TMDB for missing posters right away, so the key must already be set.
+    /// Everything else in `applyPreferences` (AI key, recent channels, region
+    /// rewrite) runs behind the first frame on the fast path, or before going
+    /// interactive on a cold import — both inside `bootstrap`.
+    public func startUp() async {
+        await metadata.setKey(effectiveTMDBKey)
+        await bootstrap()
+    }
+
     /// Load the active provider's catalog. If a completed import is already in
     /// the SQLite store, the app is interactive immediately and a stale copy is
     /// refreshed in the background. Otherwise the import is streamed in — the app

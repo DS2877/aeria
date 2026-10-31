@@ -10,8 +10,7 @@ struct AeriaApp: App {
                 .environment(environment)
                 .task {
                     environment.network.start()
-                    await environment.applyPreferences()
-                    await environment.bootstrap()
+                    await environment.startUp()
                 }
                 .onOpenURL { environment.open($0) }
         }

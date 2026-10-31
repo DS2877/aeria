@@ -65,6 +65,7 @@ public final class HomeViewModel {
         }
         pendingRebuild = task
         await task.value
+        if pendingRebuild == task { pendingRebuild = nil }
     }
 
     /// Gates the debounce only. A restored snapshot doesn't count — the first
@@ -139,10 +140,13 @@ public final class HomeViewModel {
                                   movies: Self.uniqued(favMovies + newestMovies),
                                   series: Self.uniqued(favSeries + newestSeries),
                                   epg: liveEPG.values.flatMap { $0 })
-        content = Self.makeContent(catalog: fastCatalog, epg: liveEPG, progress: progress,
-                                   prefs: prefs, ratings: ratings, liveNow: liveNow,
-                                   recentChannelIDs: recentChannelIDs, now: now,
-                                   resumePoints: resume, favoriteIDs: favoriteIDs)
+        let fastInputs = ShapeInputs(catalog: fastCatalog, epg: liveEPG, liveNow: liveNow,
+                                     recentChannelIDs: recentChannelIDs, resume: resume,
+                                     favoriteIDs: favoriteIDs)
+        let fastContent = await Self.shape(fastInputs, progress: progress, prefs: prefs,
+                                           ratings: ratings, now: now)
+        guard !Task.isCancelled else { return }
+        content = fastContent
         AppLog.app.info("Home fast pass painted in \(Int(Date().timeIntervalSince(startedAt) * 1000), privacy: .public) ms · \(self.content.rows.count, privacy: .public) rows")
 
         // ── Full pass ────────────────────────────────────────────────────────
@@ -197,12 +201,14 @@ public final class HomeViewModel {
 
         let fullCatalog = Catalog(channels: channels, movies: allMovies, series: allSeries,
                                   epg: epg.values.flatMap { $0 })
-        let shaped = Self.makeContent(catalog: fullCatalog, epg: epg, progress: progress,
-                                      prefs: prefs, ratings: ratings, liveNow: liveNow,
-                                      recentChannelIDs: recentChannelIDs, now: now,
-                                      resumePoints: resume, favoriteIDs: favoriteIDs)
+        let fullInputs = ShapeInputs(catalog: fullCatalog, epg: epg, liveNow: liveNow,
+                                     recentChannelIDs: recentChannelIDs, resume: resume,
+                                     favoriteIDs: favoriteIDs)
+        let shaped = await Self.shape(fullInputs, progress: progress, prefs: prefs,
+                                      ratings: ratings, now: now)
         guard !Task.isCancelled else { return }
         content = shaped
+        lastInputs = fullInputs
         AppLog.app.info("Home full pass in \(Int(Date().timeIntervalSince(startedAt) * 1000), privacy: .public) ms · \(shaped.rows.count, privacy: .public) rows · ~\(RuntimeStats.memoryHeadroomMB, privacy: .public) MB headroom")
 
         // Cache the finished screen for the next launch. Throttled: the catalog
@@ -220,6 +226,54 @@ public final class HomeViewModel {
     }
 
     private var lastSnapshotSave = Date.distantPast
+
+    /// Everything the last full pass fetched from the store. Kept so changes
+    /// that only affect *shaping* (new TMDB ratings) re-run the pure builder
+    /// over what's already in memory instead of ~20 store queries.
+    private var lastInputs: ShapeInputs?
+
+    struct ShapeInputs: Sendable {
+        let catalog: Catalog
+        let epg: EPGIndex
+        let liveNow: [Channel]
+        let recentChannelIDs: [CatalogID]
+        let resume: [ResumePoint]
+        let favoriteIDs: [CatalogID]
+    }
+
+    /// Runs `makeContent` off the main actor — sorting and shaping a few
+    /// hundred titles is real work, and doing it on the main thread is what
+    /// makes focus movement hitch while Home refreshes.
+    nonisolated private static func shape(
+        _ inputs: ShapeInputs, progress: [WatchProgress], prefs: UserPreferences,
+        ratings: [String: Double], now: Date
+    ) async -> HomeContent {
+        await Task.detached(priority: .userInitiated) {
+            HomeViewModel.makeContent(catalog: inputs.catalog, epg: inputs.epg, progress: progress,
+                        prefs: prefs, ratings: ratings, liveNow: inputs.liveNow,
+                        recentChannelIDs: inputs.recentChannelIDs, now: now,
+                        resumePoints: inputs.resume, favoriteIDs: inputs.favoriteIDs)
+        }.value
+    }
+
+    /// New TMDB ratings landed (the background sweep). Only the Top Rated row
+    /// and hero ordering can change, so re-shape what's already fetched rather
+    /// than rebuilding from the store. Falls back to a full rebuild when
+    /// nothing has been fetched yet.
+    public func refreshRatings() async {
+        // A rebuild already queued will read the new ratings itself.
+        guard pendingRebuild == nil else { return }
+        guard let inputs = lastInputs else {
+            await rebuild()
+            return
+        }
+        let ratings = await metadata.ratingsSnapshot()
+        let shaped = await Self.shape(inputs, progress: watchProgress.allEntries(),
+                                      prefs: preferences.preferences, ratings: ratings, now: .now)
+        // A full rebuild that started meanwhile wins — it has fresher inputs.
+        guard pendingRebuild == nil else { return }
+        content = shaped
+    }
 
     /// How many recently watched titles get their own "Because You Watched"
     /// row. Shared by the actor-side prefetch (`watchedAnchors`) and the pure

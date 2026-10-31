@@ -667,7 +667,7 @@ public final class CatalogDatabase: @unchecked Sendable {
         try await read { conn in
             let (clause, params) = Self.scopeClause(scope)
             return try conn.query(
-                "SELECT \(Self.movieCardColumns) FROM movie WHERE \(clause) ORDER BY (added_at IS NULL), added_at DESC LIMIT ?",
+                "SELECT \(Self.movieCardColumns) FROM movie WHERE \(clause) ORDER BY added_at DESC LIMIT ?",
                 params + [.integer(Int64(limit))], Self.decodeMovie
             )
         }
@@ -677,7 +677,7 @@ public final class CatalogDatabase: @unchecked Sendable {
         try await read { conn in
             let (clause, params) = Self.scopeClause(scope)
             return try conn.query(
-                "SELECT \(Self.seriesColumns) FROM series WHERE \(clause) ORDER BY (added_at IS NULL), added_at DESC LIMIT ?",
+                "SELECT \(Self.seriesColumns) FROM series WHERE \(clause) ORDER BY added_at DESC LIMIT ?",
                 params + [.integer(Int64(limit))]
             ) { row in Self.decodeSeries(row, seasons: []) }
         }
@@ -732,8 +732,8 @@ public final class CatalogDatabase: @unchecked Sendable {
             let (clause, params) = Self.scopeClause(scope)
             return try conn.query("""
             SELECT \(Self.movieCardColumns) FROM movie
-            WHERE \(clause) AND id IN (SELECT movie_id FROM movie_genre WHERE genre = ?)
-            ORDER BY (added_at IS NULL), added_at DESC LIMIT ?
+            WHERE \(clause) AND EXISTS (SELECT 1 FROM movie_genre g WHERE g.movie_id = movie.id AND g.genre = ?)
+            ORDER BY added_at DESC LIMIT ?
             """, params + [.text(genre.rawValue), .integer(Int64(limit))], Self.decodeMovie)
         }
     }
@@ -743,8 +743,8 @@ public final class CatalogDatabase: @unchecked Sendable {
             let (clause, params) = Self.scopeClause(scope)
             return try conn.query("""
             SELECT \(Self.seriesColumns) FROM series
-            WHERE \(clause) AND id IN (SELECT series_id FROM series_genre WHERE genre = ?)
-            ORDER BY (added_at IS NULL), added_at DESC LIMIT ?
+            WHERE \(clause) AND EXISTS (SELECT 1 FROM series_genre g WHERE g.series_id = series.id AND g.genre = ?)
+            ORDER BY added_at DESC LIMIT ?
             """, params + [.text(genre.rawValue), .integer(Int64(limit))]) { row in Self.decodeSeries(row, seasons: []) }
         }
     }
@@ -756,7 +756,7 @@ public final class CatalogDatabase: @unchecked Sendable {
             let langClause = languages.map { _ in "instr(audio_langs, ?) > 0" }.joined(separator: " OR ")
             return try conn.query(
                 "SELECT \(Self.movieCardColumns) FROM movie WHERE \(clause) AND (\(langClause)) " +
-                "ORDER BY (added_at IS NULL), added_at DESC LIMIT ?",
+                "ORDER BY added_at DESC LIMIT ?",
                 params + languages.map { SQLiteValue.text(CatalogValues.needle($0)) } + [.integer(Int64(limit))],
                 Self.decodeMovie
             )
@@ -768,7 +768,7 @@ public final class CatalogDatabase: @unchecked Sendable {
             let (clause, params) = Self.scopeClause(scope)
             return try conn.query(
                 "SELECT \(Self.movieCardColumns) FROM movie WHERE \(clause) AND instr(sub_langs, ?) > 0 " +
-                "ORDER BY (added_at IS NULL), added_at DESC LIMIT ?",
+                "ORDER BY added_at DESC LIMIT ?",
                 params + [.text(CatalogValues.needle(language)), .integer(Int64(limit))], Self.decodeMovie
             )
         }
@@ -841,7 +841,7 @@ public final class CatalogDatabase: @unchecked Sendable {
             (SELECT count(*) FROM movie_genre g WHERE g.movie_id = movie.id AND g.genre IN (\(ph))) AS shared
             FROM movie WHERE \(clause) AND id <> ? \
             AND id IN (SELECT movie_id FROM movie_genre WHERE genre IN (\(ph)))
-            ORDER BY shared DESC, (added_at IS NULL), added_at DESC LIMIT ?
+            ORDER BY shared DESC, added_at DESC LIMIT ?
             """
             let args = params + genreArgs + [.text(id.rawValue)] + genreArgs + [.integer(Int64(limit))]
             return try conn.query(sql, args, Self.decodeMovie)
@@ -859,7 +859,7 @@ public final class CatalogDatabase: @unchecked Sendable {
             (SELECT count(*) FROM series_genre g WHERE g.series_id = series.id AND g.genre IN (\(ph))) AS shared
             FROM series WHERE \(clause) AND id <> ? \
             AND id IN (SELECT series_id FROM series_genre WHERE genre IN (\(ph)))
-            ORDER BY shared DESC, (added_at IS NULL), added_at DESC LIMIT ?
+            ORDER BY shared DESC, added_at DESC LIMIT ?
             """
             let args = params + genreArgs + [.text(id.rawValue)] + genreArgs + [.integer(Int64(limit))]
             return try conn.query(sql, args) { row in Self.decodeSeries(row, seasons: []) }
@@ -871,11 +871,11 @@ public final class CatalogDatabase: @unchecked Sendable {
     public func artworkSeeds(movieLimit: Int, seriesLimit: Int) async throws -> [ArtworkSeed] {
         try await read { conn in
             let movies = try conn.query(
-                "SELECT id, title, year FROM movie ORDER BY (added_at IS NULL), added_at DESC LIMIT ?",
+                "SELECT id, title, year FROM movie ORDER BY added_at DESC LIMIT ?",
                 [.integer(Int64(movieLimit))]
             ) { ArtworkSeed(id: CatalogID(rawValue: $0.string(0)), title: $0.string(1), year: $0.intOrNil(2), isSeries: false) }
             let series = try conn.query(
-                "SELECT id, title, year FROM series ORDER BY (added_at IS NULL), added_at DESC LIMIT ?",
+                "SELECT id, title, year FROM series ORDER BY added_at DESC LIMIT ?",
                 [.integer(Int64(seriesLimit))]
             ) { ArtworkSeed(id: CatalogID(rawValue: $0.string(0)), title: $0.string(1), year: $0.intOrNil(2), isSeries: true) }
             return movies + series
@@ -1024,9 +1024,13 @@ public final class CatalogDatabase: @unchecked Sendable {
 
     private static func orderClause(_ sort: BrowseSort) -> String {
         switch sort {
-        case .recentlyAdded:  return "(added_at IS NULL), added_at DESC, title_fold"
+        // SQLite sorts NULL lowest, so `DESC` already puts undated rows last —
+        // no `(x IS NULL)` lead term, which would hide the column from the
+        // `*_visible_added` / `*_visible_year` indexes and force a full sort of
+        // the library on every page.
+        case .recentlyAdded:  return "added_at DESC, title_fold"
         case .titleAscending: return "title_fold, (year IS NULL), year"
-        case .newest:         return "(year IS NULL), year DESC, title_fold"
+        case .newest:         return "year DESC, title_fold"
         case .oldest:         return "(year IS NULL), year ASC, title_fold"
         }
     }
@@ -1298,6 +1302,12 @@ public final class CatalogDatabase: @unchecked Sendable {
     /// Reclaim pages and refresh planner stats after a big import.
     public func optimize() async throws {
         try await write { conn in
+            // Fresh planner statistics after every import. Without them SQLite
+            // guesses at selectivity and can pick an index that sorts the whole
+            // library instead of the one that walks it in order. The limit keeps
+            // this to a sampled pass (milliseconds), not a full scan.
+            try conn.execute("PRAGMA analysis_limit = 400")
+            try conn.execute("ANALYZE")
             try conn.execute("PRAGMA optimize")
             try conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
         }

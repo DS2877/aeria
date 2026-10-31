@@ -105,10 +105,17 @@ actor ImageCache {
         session = URLSession(configuration: config)
 
         // Crude cap: if the on-disk cache has grown past ~350 MB, wipe it.
-        if let size = try? FileManager.default.allocatedSizeOfDirectory(at: directory),
-           size > 350 * 1024 * 1024 {
-            try? FileManager.default.removeItem(at: directory)
-            try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        // Walking thousands of files is slow, and `init` runs on whichever
+        // thread first asks for an image — usually the first poster on screen —
+        // so the check runs in the background a little after launch instead.
+        let dir = directory
+        Task.detached(priority: .background) {
+            try? await Task.sleep(for: .seconds(20))
+            if let size = try? FileManager.default.allocatedSizeOfDirectory(at: dir),
+               size > 350 * 1024 * 1024 {
+                try? FileManager.default.removeItem(at: dir)
+                try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            }
         }
     }
 
@@ -147,7 +154,12 @@ actor ImageCache {
 
         let dir = directory
         let session = self.session
-        let task = Task<UIImage?, Never> {
+        // Detached on purpose: a plain `Task {}` here inherits this actor, which
+        // ran every disk read and decode for every image one at a time on the
+        // actor's single executor — posters filled in one by one even when all
+        // of them were already on disk. Detached, they load in parallel, with
+        // `DecodeLimiter` (finally effective) capping the concurrent decodes.
+        let task = Task.detached(priority: .userInitiated) { () -> UIImage? in
             // Raw bytes on disk are keyed by URL alone, so switching size never
             // re-downloads.
             let fileURL = dir.appendingPathComponent(Self.filename(for: url))

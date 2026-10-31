@@ -108,7 +108,8 @@ struct HomeView: View {
             }
         }
         .onChange(of: environment.metadataRevision) { _, _ in
-            Task { await model?.rebuild() }
+            // Ratings only change how rows are shaped — no store queries.
+            Task { await model?.refreshRatings() }
         }
     }
 
