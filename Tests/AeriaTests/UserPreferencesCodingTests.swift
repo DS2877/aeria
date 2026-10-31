@@ -29,7 +29,7 @@ final class UserPreferencesCodingTests: XCTestCase {
         XCTAssertTrue(decoded.hasOnboarded)               // from JSON
         XCTAssertTrue(decoded.autoPlayNextEpisode)        // default
         XCTAssertFalse(decoded.aiAssistedSearch)          // default
-        XCTAssertEqual(decoded.defaultSort, .titleAscending)         // default
+        XCTAssertEqual(decoded.defaultSort, .recentlyAdded)          // default
         XCTAssertEqual(decoded.homeRows, HomeRowKind.defaultEnabled) // default
         XCTAssertTrue(decoded.preferredAudioLanguages.isEmpty)       // default
     }

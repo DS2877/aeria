@@ -116,7 +116,9 @@ public final class WatchProgressStore {
         }
     }
 
-    private func flush() {
+    /// Write any coalesced change now. Call when the app leaves the
+    /// foreground — a suspended app may never run the 2 s debounce.
+    public func flush() {
         let list = Array(byID.values)
         guard let data = try? JSONEncoder().encode(list) else { return }
         defaults.set(data, forKey: storageKey)

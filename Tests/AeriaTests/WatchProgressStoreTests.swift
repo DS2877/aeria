@@ -41,6 +41,7 @@ final class WatchProgressStoreTests: XCTestCase {
         let defaults = UserDefaults(suiteName: suite)!
         let a = WatchProgressStore(defaults: defaults)
         a.record(id: id("movie:x"), kind: .movie, positionSeconds: 1200, durationSeconds: 6000)
+        a.flush()   // writes are coalesced; the app flushes on backgrounding
 
         let b = WatchProgressStore(defaults: defaults)
         XCTAssertEqual(b.fraction(for: id("movie:x")), 0.2, accuracy: 0.001)

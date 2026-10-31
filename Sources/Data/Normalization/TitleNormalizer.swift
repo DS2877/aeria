@@ -21,7 +21,7 @@ public enum TitleNormalizer {
 
     // Quality / codec / misc noise tokens as standalone words.
     private static let noiseWords = CompiledPattern(
-        #"(?<![a-z])(?:hd|fhd|uhd|sd|4k|8k|1080p?|720p?|480p?|2160p?|h264|h265|hevc|x264|x265|hdr|dv|dolby|aac|ac3|multi|multisub|vip|backup|raw|web[\s\-]?dl|bluray|hdtv)(?![a-z])"#
+        #"(?<![a-z])(?:hd|fhd|uhd|sd|4k|8k|1080p?|720p?|480p?|2160p?|h264|h265|hevc|x264|x265|hdr|dv|dolby|aac|ac3|multi|multisub|vip|backup|raw|web[\s\-]?dl|bluray|hdtv|restored|remastered)(?![a-z])"#
     )
 
     // Trailing country names that some providers append.

@@ -321,7 +321,11 @@ public actor InMemoryCatalogRepository: CatalogQuerying {
             if l != r { return l > r }
             return lt.localizedCompare(rt) == .orderedAscending
         case .titleAscending:
-            return lt.localizedCompare(rt) == .orderedAscending
+            // Same key the SQLite store sorts on (`title_fold`), so the in-memory
+            // repo (tests, demo) pages and anchors in the same order.
+            let lf = lt.foldedForSearch(), rf = rt.foldedForSearch()
+            if lf != rf { return lf < rf }
+            return (ly ?? Int.max) < (ry ?? Int.max)
         case .newest:
             if (ly ?? 0) != (ry ?? 0) { return (ly ?? 0) > (ry ?? 0) }
             return lt.localizedCompare(rt) == .orderedAscending
