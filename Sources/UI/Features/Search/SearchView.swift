@@ -30,6 +30,16 @@ struct SearchView: View {
                     content(model)
                         .searchable(text: Binding(get: { model.query }, set: { model.query = $0 }),
                                     prompt: "Titles, channels, programmes — or describe it")
+                        // Recent searches as keyboard suggestions — one click
+                        // re-runs one, the way the Apple TV app does it.
+                        .searchSuggestions {
+                            if model.query.isEmpty {
+                                ForEach(model.recentQueries, id: \.self) { recent in
+                                    Label(recent, systemImage: "clock.arrow.circlepath")
+                                        .searchCompletion(recent)
+                                }
+                            }
+                        }
                         .onSubmit(of: .search) {
                             Task { await model.search(vocabulary: env.vocabulary) }
                         }
