@@ -17,15 +17,15 @@ struct FilterSheet: View {
         ScrollView {
             VStack(alignment: .leading, spacing: Metrics.space4) {
                 HStack {
-                    Text("Filters").font(.dsHero)
+                    Text("Filter").font(.dsHero)
                     Spacer()
-                    Button("Reset") { working = CatalogFilter(sort: working.sort) }
+                    Button("Återställ") { working = CatalogFilter(sort: working.sort) }
                         .buttonStyle(.bordered)
-                    Button("Apply") { filter = working; dismiss() }
+                    Button("Använd") { filter = working; dismiss() }
                         .buttonStyle(.borderedProminent)
                 }
                 Group {
-                    section("Sort") {
+                    section("Sortering") {
                         chipRow(BrowseSort.allCases, id: \.self, label: \.label,
                                 isOn: { working.sort == $0 },
                                 toggle: { working.sort = $0 })
@@ -39,26 +39,26 @@ struct FilterSheet: View {
                         }
                     }
                     if !audio.isEmpty {
-                        section("Audio language") {
+                        section("Talspråk") {
                             chipRow(audio, id: \.self, label: \.displayName,
                                     isOn: { working.audioLanguages.contains($0) },
                                     toggle: { toggle(\.audioLanguages, $0) })
                         }
                     }
                     if !subtitles.isEmpty {
-                        section("Subtitles") {
+                        section("Undertexter") {
                             chipRow(subtitles, id: \.self, label: \.displayName,
                                     isOn: { working.subtitleLanguages.contains($0) },
                                     toggle: { toggle(\.subtitleLanguages, $0) })
                         }
                     }
-                    section("Minimum quality") {
+                    section("Lägsta kvalitet") {
                         let options: [VideoQuality] = [.hd, .fhd, .uhd]
                         chipRow(options, id: \.self, label: { $0.shortLabel + "+" },
                                 isOn: { working.minQuality == $0 },
                                 toggle: { working.minQuality = (working.minQuality == $0) ? nil : $0 })
                     }
-                    section("From year") {
+                    section("Från år") {
                         chipRow(years, id: \.self, label: { "\($0)+" },
                                 isOn: { working.minYear == $0 },
                                 toggle: { working.minYear = (working.minYear == $0) ? nil : $0 })

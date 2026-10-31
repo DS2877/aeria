@@ -162,7 +162,7 @@ public struct XtreamProviderClient: ProviderClient {
                 guard let epID = ep.id else { continue }
                 result.append(RawSeriesEpisode(
                     providerKey: epID,
-                    name: ep.title ?? "Episode \(ep.episode_num ?? 0)",
+                    name: ep.title ?? "Avsnitt \(ep.episode_num ?? 0)",
                     groupTitle: nil,
                     logo: ep.info?.movie_image,
                     streamURL: api.seriesStreamURL(episodeID: epID,

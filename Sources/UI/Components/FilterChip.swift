@@ -41,7 +41,7 @@ public struct FilterChip: View {
             .animation(Metrics.focusAnimation, value: isFocused)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(showsRemoveIcon ? "Remove filter: \(label)" : label)
+        .accessibilityLabel(showsRemoveIcon ? "Ta bort filter: \(label)" : label)
         .accessibilityAddTraits(isSelected && !showsRemoveIcon ? [.isButton, .isSelected] : .isButton)
     }
 

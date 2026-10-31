@@ -15,8 +15,8 @@ struct MovieDetailView: View {
             if let movie {
                 loaded(movie)
             } else if notFound {
-                EmptyStateView(icon: "film", title: "Not available",
-                               message: "This title isn't in your library anymore.")
+                EmptyStateView(icon: "film", title: "Inte tillgänglig",
+                               message: "Titeln finns inte längre i ditt bibliotek.")
             } else {
                 ProgressView().controlSize(.large)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -68,7 +68,7 @@ struct MovieDetailView: View {
             if let credits = enriched?.castCredits, !credits.isEmpty {
                 CastRail(credits: credits)
             }
-            RelatedRail(title: "More Like This", items: related)
+            RelatedRail(title: "Mer som detta", items: related)
         }
     }
 
@@ -106,7 +106,7 @@ struct MovieDetailView: View {
                 MetadataLine([
                     movie.year.map(String.init),
                     genre,
-                    runtime.map { "\($0 / 60)h \($0 % 60)m" },
+                    runtime.map { $0 >= 60 ? "\($0 / 60) tim \($0 % 60) min" : "\($0) min" },
                     movie.quality > .unknown ? movie.quality.shortLabel : nil,
                 ])
             }
@@ -126,23 +126,23 @@ struct MovieDetailView: View {
                 Button {
                     Task { playback = await env.playback(forMovie: movie.id) }
                 } label: {
-                    Label(progress?.isResumable == true ? "Resume" : "Play", systemImage: "play.fill")
+                    Label(progress?.isResumable == true ? "Återuppta" : "Spela", systemImage: "play.fill")
                 }
                 .buttonStyle(PrimaryButtonStyle())
                 .contextMenu {
                     if progress?.isFinished == true {
                         Button {
                             env.markUnwatched(id: movie.id)
-                        } label: { Label("Mark as Unwatched", systemImage: "arrow.uturn.backward") }
+                        } label: { Label("Markera som osedd", systemImage: "arrow.uturn.backward") }
                     } else {
                         Button {
                             env.markWatched(id: movie.id, kind: .movie)
-                        } label: { Label("Mark as Watched", systemImage: "checkmark.circle") }
+                        } label: { Label("Markera som sedd", systemImage: "checkmark.circle") }
                     }
                     if progress?.isResumable == true {
                         Button(role: .destructive) {
                             env.removeFromContinueWatching(id: movie.id)
-                        } label: { Label("Clear resume point", systemImage: "minus.circle") }
+                        } label: { Label("Rensa återupptagning", systemImage: "minus.circle") }
                     }
                 }
 
@@ -150,7 +150,7 @@ struct MovieDetailView: View {
                     Button {
                         Task { playback = await env.playback(forMovie: movie.id, fromStart: true) }
                     } label: {
-                        Label("From Start", systemImage: "gobackward")
+                        Label("Från början", systemImage: "gobackward")
                     }
                     .buttonStyle(SecondaryButtonStyle())
                 }
@@ -162,12 +162,12 @@ struct MovieDetailView: View {
                         .symbolEffect(.bounce, value: env.favorites.isFavorite(movie.id))
                 }
                 .buttonStyle(SecondaryButtonStyle())
-                .accessibilityLabel(env.favorites.isFavorite(movie.id) ? "Remove from Favorites" : "Add to Favorites")
+                .accessibilityLabel(env.favorites.isFavorite(movie.id) ? "Ta bort från Favoriter" : "Lägg till i Favoriter")
             }
 
             if let progress, progress.isResumable {
                 ProgressView(value: progress.fraction) {
-                    Text("Resume from \(timecode(progress.positionSeconds))")
+                    Text("Återuppta från \(timecode(progress.positionSeconds))")
                         .font(.dsCaption).foregroundStyle(Palette.textTertiary)
                 }
                 .tint(Palette.accent)
@@ -193,10 +193,10 @@ struct MovieDetailView: View {
             }
 
             if !movie.directors.isEmpty {
-                creditRow("Director", movie.directors)
+                creditRow("Regi", movie.directors)
             }
             if showTextCast {
-                creditRow("Cast", textCast)
+                creditRow("Medverkande", textCast)
             }
         }
     }
@@ -213,6 +213,6 @@ struct MovieDetailView: View {
     private func timecode(_ seconds: Double) -> String {
         let total = Int(seconds)
         let h = total / 3600, m = (total % 3600) / 60
-        return h > 0 ? "\(h)h \(m)m" : "\(m)m"
+        return h > 0 ? "\(h) tim \(m) min" : "\(m) min"
     }
 }

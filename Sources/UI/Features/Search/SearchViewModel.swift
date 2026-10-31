@@ -188,9 +188,9 @@ public final class SearchViewModel {
         for kind in intent.kinds {
             let label: String
             switch kind {
-            case .movie: label = "Movies"
-            case .series: label = "Series"
-            case .liveChannel: label = "Live TV"
+            case .movie: label = "Filmer"
+            case .series: label = "Serier"
+            case .liveChannel: label = "Kanaler"
             }
             chips.append(Chip(id: "kind-\(kind.rawValue)", label: label) { intent in
                 intent.kinds.removeAll { $0 == kind }
@@ -202,24 +202,24 @@ public final class SearchViewModel {
             })
         }
         for lang in intent.audioLanguages {
-            chips.append(Chip(id: "audio-\(lang.code)", label: "\(lang.displayName) audio") { intent in
+            chips.append(Chip(id: "audio-\(lang.code)", label: "Tal: \(lang.displayName)") { intent in
                 intent.audioLanguages.removeAll { $0 == lang }
             })
         }
         for lang in intent.subtitleLanguages {
-            chips.append(Chip(id: "sub-\(lang.code)", label: "\(lang.displayName) subtitles") { intent in
+            chips.append(Chip(id: "sub-\(lang.code)", label: "Text: \(lang.displayName)") { intent in
                 intent.subtitleLanguages.removeAll { $0 == lang }
             })
         }
         if let minYear = intent.minYear {
-            chips.append(Chip(id: "minYear", label: "After \(minYear - 1)") { $0.minYear = nil })
+            chips.append(Chip(id: "minYear", label: "Efter \(minYear - 1)") { $0.minYear = nil })
         }
         if let maxYear = intent.maxYear {
-            chips.append(Chip(id: "maxYear", label: "Before \(maxYear + 1)") { $0.maxYear = nil })
+            chips.append(Chip(id: "maxYear", label: "Före \(maxYear + 1)") { $0.maxYear = nil })
         }
         if let maxDur = intent.maxDurationMinutes {
-            let label = maxDur >= 60 ? "Under \(maxDur / 60)h\(maxDur % 60 == 0 ? "" : " \(maxDur % 60)m")"
-                                     : "Under \(maxDur)m"
+            let label = maxDur >= 60 ? "Under \(maxDur / 60) tim\(maxDur % 60 == 0 ? "" : " \(maxDur % 60) min")"
+                                     : "Under \(maxDur) min"
             chips.append(Chip(id: "maxDur", label: label) { $0.maxDurationMinutes = nil })
         }
         if let q = intent.minQuality, q > .unknown {

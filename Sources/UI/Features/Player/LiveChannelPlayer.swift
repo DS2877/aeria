@@ -74,13 +74,13 @@ struct ChannelContextMenu: View {
 
     var body: some View {
         Button(action: onInfo) {
-            Label("Channel Info & Schedule", systemImage: "info.circle")
+            Label("Kanalinfo & tablå", systemImage: "info.circle")
         }
         let isFavorite = env.favorites.isFavorite(channelID)
         Button {
             env.favorites.toggle(id: channelID, kind: .liveChannel)
         } label: {
-            Label(isFavorite ? "Remove from Favorites" : "Add to Favorites",
+            Label(isFavorite ? "Ta bort från Favoriter" : "Lägg till i Favoriter",
                   systemImage: isFavorite ? "heart.slash" : "heart")
         }
     }

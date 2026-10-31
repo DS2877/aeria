@@ -92,7 +92,7 @@ struct TMDBRatingBadge: View {
         .padding(.vertical, Metrics.space1)
         .background(Palette.surface, in: Capsule())
         .overlay(Capsule().strokeBorder(Palette.hairline))
-        .accessibilityLabel("Rated \(String(format: "%.1f", rating)) out of 10 on The Movie Database")
+        .accessibilityLabel("Betyg \(String(format: "%.1f", rating)) av 10 på The Movie Database")
     }
 
     private static func shortCount(_ n: Int) -> String {
@@ -109,10 +109,10 @@ struct LanguageSummary: View {
         if !audio.isEmpty || !subtitles.isEmpty {
             HStack(spacing: Metrics.space2) {
                 if !audio.isEmpty {
-                    chip("Audio", audio.map(\.displayName).joined(separator: ", "))
+                    chip("Tal", audio.map(\.displayName).joined(separator: ", "))
                 }
                 if !subtitles.isEmpty {
-                    chip("Subtitles", subtitles.map(\.displayName).joined(separator: ", "))
+                    chip("Undertexter", subtitles.map(\.displayName).joined(separator: ", "))
                 }
             }
         }

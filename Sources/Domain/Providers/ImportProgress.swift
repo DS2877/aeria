@@ -15,12 +15,12 @@ public enum ImportPhase: String, CaseIterable, Sendable, Identifiable {
 
     public var label: String {
         switch self {
-        case .connecting: return "Connecting to your provider"
-        case .channels:   return "Channels"
-        case .movies:     return "Movies"
-        case .series:     return "Series"
-        case .guide:      return "TV guide"
-        case .finalizing: return "Tidying up"
+        case .connecting: return "Ansluter till din leverantör"
+        case .channels:   return "Kanaler"
+        case .movies:     return "Filmer"
+        case .series:     return "Serier"
+        case .guide:      return "TV-guide"
+        case .finalizing: return "Städar upp"
         }
     }
 

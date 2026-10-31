@@ -28,8 +28,8 @@ struct HomeView: View {
                     // Loaded, built, and genuinely nothing to show.
                     EmptyStateView(
                         icon: "tv",
-                        title: "Nothing to show yet",
-                        message: "Your library loaded but came back empty. Check your provider in Settings."
+                        title: "Inget att visa än",
+                        message: "Biblioteket laddades men var tomt. Kontrollera din leverantör i Inställningar."
                     )
                 } else {
                     loadingView
@@ -191,8 +191,8 @@ struct HomeView: View {
         if model.content.rows.isEmpty {
             EmptyStateView(
                 icon: "tv",
-                title: "Nothing to show yet",
-                message: "Your library loaded but came back empty. Check your provider in Settings."
+                title: "Inget att visa än",
+                message: "Biblioteket laddades men var tomt. Kontrollera din leverantör i Inställningar."
             )
         } else {
             ScrollView {
@@ -258,17 +258,17 @@ struct HomeView: View {
     private func resumeMenu(for card: HomeCard) -> some View {
         if let itemID = card.resumeItemID {
             Button { navigate(card) } label: {
-                Label("Go to \(card.title)", systemImage: "info.circle")
+                Label("Gå till \(card.title)", systemImage: "info.circle")
             }
             Button {
                 environment.markWatched(id: itemID, kind: card.kind == .series ? .series : .movie)
                 Task { await model?.rebuild() }
-            } label: { Label("Mark as Watched", systemImage: "checkmark.circle") }
+            } label: { Label("Markera som sedd", systemImage: "checkmark.circle") }
 
             Button(role: .destructive) {
                 environment.removeFromContinueWatching(id: itemID)
                 Task { await model?.rebuild() }
-            } label: { Label("Remove", systemImage: "minus.circle") }
+            } label: { Label("Ta bort", systemImage: "minus.circle") }
         }
     }
 
@@ -354,7 +354,7 @@ struct TonightRail: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.space2) {
-            SectionHeader("Tonight", subtitle: "What's coming up across your channels")
+            SectionHeader("Ikväll", subtitle: "Det här kommer på dina kanaler")
                 .padding(.horizontal, Metrics.screenMargin)
 
             ScrollView(.horizontal, showsIndicators: false) {

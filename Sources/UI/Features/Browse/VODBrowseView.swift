@@ -79,11 +79,11 @@ struct VODBrowseView: View {
                     } else if model.cards.isEmpty && !model.isLoading {
                         EmptyStateView(
                             icon: "line.3.horizontal.decrease.circle",
-                            title: model.filter.isNarrowed ? "No matches" : "Nothing here yet",
+                            title: model.filter.isNarrowed ? "Inga träffar" : "Inget här ännu",
                             message: model.filter.isNarrowed
-                                ? "Nothing in your library matches these filters."
-                                : "Your provider didn't return any \(kind.title.lowercased()).",
-                            actionTitle: model.filter.isNarrowed ? "Clear filters" : nil,
+                                ? "Inget i ditt bibliotek matchar filtren."
+                                : "Din leverantör skickade inga \(kind.title.lowercased()).",
+                            actionTitle: model.filter.isNarrowed ? "Rensa filter" : nil,
                             action: model.filter.isNarrowed ? { model.clearFilters() } : nil
                         )
                         .frame(minHeight: 400)
@@ -139,7 +139,7 @@ struct VODBrowseView: View {
                                 }
                             }
                         }
-                        .accessibilityLabel("Jump to \(anchor.letter)")
+                        .accessibilityLabel("Hoppa till \(anchor.letter)")
                     }
                 }
                 .padding(.vertical, Metrics.space1)
@@ -147,7 +147,7 @@ struct VODBrowseView: View {
             }
             .scrollClipDisabled()
             .focusSection()
-            .accessibilityLabel("Jump to letter")
+            .accessibilityLabel("Hoppa till bokstav")
         }
     }
 
@@ -163,15 +163,15 @@ struct VODBrowseView: View {
                 Button {
                     Task { await surpriseMe(model) }
                 } label: {
-                    Label("Surprise Me", systemImage: "shuffle")
+                    Label("Överraska mig", systemImage: "shuffle")
                 }
                 .buttonStyle(SecondaryButtonStyle())
-                .accessibilityHint("Opens a random \(kind == .movies ? "film" : "show")\(model.filter.isNarrowed ? " that matches your filters" : "")")
+                .accessibilityHint("Öppnar en slumpad \(kind == .movies ? "film" : "serie")\(model.filter.isNarrowed ? " som matchar filtren" : "")")
 
                 Button {
                     showFilters = true
                 } label: {
-                    Label(model.filter.isNarrowed ? "Filters · \(model.filter.activeChips.count)" : "Filters",
+                    Label(model.filter.isNarrowed ? "Filter · \(model.filter.activeChips.count)" : "Filter",
                           systemImage: "line.3.horizontal.decrease")
                 }
                 .buttonStyle(SecondaryButtonStyle())

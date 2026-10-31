@@ -17,15 +17,15 @@ struct SidebarShell: View {
 
         var title: String {
             switch self {
-            case .home: return "Home"
-            case .search: return "Search"
-            case .liveTV: return "Live TV"
-            case .guide: return "Guide"
-            case .movies: return "Movies"
-            case .series: return "Series"
-            case .favorites: return "Favorites"
-            case .history: return "History"
-            case .settings: return "Settings"
+            case .home: return "Hem"
+            case .search: return "Sök"
+            case .liveTV: return "Live-TV"
+            case .guide: return "TV-guide"
+            case .movies: return "Filmer"
+            case .series: return "Serier"
+            case .favorites: return "Favoriter"
+            case .history: return "Historik"
+            case .settings: return "Inställningar"
             }
         }
         var icon: String {
@@ -394,7 +394,7 @@ private struct OfflinePill: View {
     var body: some View {
         HStack(spacing: Metrics.space1) {
             Image(systemName: "wifi.slash")
-            Text("You're offline — check your network")
+            Text("Du är offline — kontrollera nätverket")
         }
         .font(.dsCaption)
         .foregroundStyle(Palette.textPrimary)
@@ -421,8 +421,8 @@ private struct LibraryStatusPill: View {
                     HStack(spacing: Metrics.space1) {
                         ProgressView().controlSize(.small).tint(Palette.textPrimary)
                         Text(env.reachedPhases.contains(.guide)
-                             ? "Organising your library…"
-                             : "Importing your library…")
+                             ? "Organiserar ditt bibliotek…"
+                             : "Importerar ditt bibliotek…")
                     }
                 }
             case .failed(let error):
@@ -430,7 +430,7 @@ private struct LibraryStatusPill: View {
                     HStack(spacing: Metrics.space1) {
                         Image(systemName: "exclamationmark.triangle.fill")
                         Text(error.title)
-                        Button("Retry") { Task { await env.bootstrap(forceReload: true) } }
+                        Button("Försök igen") { Task { await env.bootstrap(forceReload: true) } }
                             .buttonStyle(.bordered)
                             .controlSize(.small)
                     }

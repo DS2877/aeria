@@ -354,7 +354,7 @@ public final class HomeViewModel {
         }
 
         let points = resumePoints ?? UpNext.resumePoints(catalog: catalog, progress: progress, limit: 12)
-        add(.continueWatching, "Continue Watching", continueWatchingCards(points), style: .landscape)
+        add(.continueWatching, "Fortsätt titta", continueWatchingCards(points), style: .landscape)
 
         // "My List" — favourited movies + series, in the order they were hearted.
         // Shown regardless of the saved row list (the option post-dates them).
@@ -368,18 +368,18 @@ public final class HomeViewModel {
                 else if let s = seriesByID[id] { cards.append(card(for: s)) }
             }
             guard !cards.isEmpty else { return nil }
-            return HomeRow(id: HomeRowKind.myList.rawValue, title: "My List",
+            return HomeRow(id: HomeRowKind.myList.rawValue, title: "Min lista",
                            subtitle: nil, cards: Array(cards.prefix(24)))
         }()
 
         // "Your Channels" — the hearted channels with what's on, right under
         // Continue Watching: the first thing an IPTV viewer reaches for.
         let yourChannelsRow: HomeRow? = favoriteChannels.isEmpty ? nil
-            : HomeRow(id: "your-channels", title: "Your Channels", subtitle: nil,
+            : HomeRow(id: "your-channels", title: "Dina kanaler", subtitle: nil,
                       cards: favoriteChannels.prefix(24).map { channelCard($0, epg: epg, now: now) })
 
         let liveCards = liveNow.prefix(16).map { channelCard($0, epg: epg, now: now) }
-        add(.liveNow, "Live Now", Array(liveCards))
+        add(.liveNow, "Direkt nu", Array(liveCards))
 
         // "Recently Watched" live channels — the viewer's own tune-in history.
         let recentChannelRow: HomeRow? = {
@@ -387,7 +387,7 @@ public final class HomeViewModel {
             let byID = Dictionary(catalog.channels.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
             let cards = recentChannelIDs.compactMap { byID[$0] }.map { channelCard($0, epg: epg, now: now) }
             guard cards.count >= 2 else { return nil }
-            return HomeRow(id: "recent-channels", title: "Recently Watched", subtitle: nil, cards: cards)
+            return HomeRow(id: "recent-channels", title: "Senast tittade kanaler", subtitle: nil, cards: cards)
         }()
 
         let seriesByRecency = catalog.series.sorted { ($0.addedAt ?? .distantPast) > ($1.addedAt ?? .distantPast) }
@@ -407,7 +407,7 @@ public final class HomeViewModel {
                     .filter { !excluded.contains($0.id) }
                 guard cards.count >= 5 else { continue }
                 built.append(HomeRow(id: "because-\(anchor.id.rawValue)",
-                                     title: "Because You Watched \(anchor.title)", subtitle: nil, cards: cards))
+                                     title: "Eftersom du såg \(anchor.title)", subtitle: nil, cards: cards))
                 excluded.formUnion(cards.map(\.id))
                 excluded.insert(anchor.id)
             }
@@ -416,18 +416,18 @@ public final class HomeViewModel {
 
         var recent = Array(moviesByRecency.prefix(12)).map { card(for: $0) }
         recent += Array(seriesByRecency.prefix(6)).map { card(for: $0) }
-        add(.recentlyAdded, "Recently Added", Array(recent.prefix(16)))
+        add(.recentlyAdded, "Senast tillagt", Array(recent.prefix(16)))
 
         if !prefs.preferredAudioLanguages.isEmpty {
             let want = Set(prefs.preferredAudioLanguages)
             var cards = catalog.movies.filter { !want.isDisjoint(with: $0.audioLanguages) }.prefix(20).map { card(for: $0) }
             cards += catalog.series.filter { !want.isDisjoint(with: $0.audioLanguages) }.prefix(10).map { card(for: $0) }
-            add(.inYourLanguages, "In Your Languages", cards)
+            add(.inYourLanguages, "På dina språk", cards)
         }
         if let sub = prefs.preferredSubtitleLanguage {
             var cards = catalog.movies.filter { $0.subtitleLanguages.contains(sub) }.prefix(20).map { card(for: $0) }
             cards += catalog.series.filter { $0.subtitleLanguages.contains(sub) }.prefix(10).map { card(for: $0) }
-            add(.withYourSubtitles, "With \(sub.displayName) Subtitles", cards)
+            add(.withYourSubtitles, "Med \(Self.adjective(sub.displayName)) text", cards)
         }
 
         // Top Rated — TMDB ratings, best first. Shown whenever we have enough
@@ -445,8 +445,8 @@ public final class HomeViewModel {
             .prefix(10)
             .map(\.card)
         if topRated.count >= 5 {
-            rows.append(HomeRow(id: HomeRowKind.topRated.rawValue, title: "Top 10 in Your Library",
-                                subtitle: "Ranked by TMDB rating", cards: Array(topRated), style: .ranked))
+            rows.append(HomeRow(id: HomeRowKind.topRated.rawValue, title: "Topp 10 i ditt bibliotek",
+                                subtitle: "Rankat efter betyg på TMDB", cards: Array(topRated), style: .ranked))
         }
         if let yourChannelsRow { rows.append(yourChannelsRow) }
         if let myListRow { rows.append(myListRow) }
@@ -474,8 +474,8 @@ public final class HomeViewModel {
             }
         }
 
-        add(.movies, "Movies", Array(moviesByRecency.prefix(30)).map { card(for: $0) })
-        add(.series, "Series", Array(catalog.series.prefix(30)).map { card(for: $0) })
+        add(.movies, "Filmer", Array(moviesByRecency.prefix(30)).map { card(for: $0) })
+        add(.series, "Serier", Array(catalog.series.prefix(30)).map { card(for: $0) })
 
         // Match the user's preferred row order.
         rows.sort { lhs, rhs in
@@ -671,10 +671,16 @@ public final class HomeViewModel {
         if let year = series.year { parts.append(String(year)) }
         if let genre = series.genres.first { parts.append(genre.displayName) }
         if !series.seasons.isEmpty {
-            parts.append("\(series.seasons.count) season\(series.seasons.count == 1 ? "" : "s")")
+            parts.append("\(series.seasons.count) \(series.seasons.count == 1 ? "säsong" : "säsonger")")
         }
         if series.quality > .unknown { parts.append(series.quality.shortLabel) }
         return parts.joined(separator: " · ")
+    }
+
+    /// "Svenska" → "svensk", for "Med svensk text".
+    nonisolated static func adjective(_ languageName: String) -> String {
+        let lower = languageName.lowercased()
+        return lower.hasSuffix("a") ? String(lower.dropLast()) : lower
     }
 
     nonisolated static func metadataSubtitle(for movie: Movie) -> String {
@@ -682,7 +688,7 @@ public final class HomeViewModel {
         if let year = movie.year { parts.append(String(year)) }
         if let genre = movie.genres.first { parts.append(genre.displayName) }
         if let d = movie.durationMinutes, d > 0 {
-            parts.append(d >= 60 ? "\(d / 60)h \(d % 60)m" : "\(d)m")
+            parts.append(d >= 60 ? "\(d / 60) tim \(d % 60) min" : "\(d) min")
         }
         if movie.quality > .unknown { parts.append(movie.quality.shortLabel) }
         return parts.joined(separator: " · ")

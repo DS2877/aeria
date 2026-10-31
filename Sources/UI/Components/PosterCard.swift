@@ -40,9 +40,9 @@ public struct PosterCard: View {
 
     private var accessibilityLabel: String {
         var parts = [title]
-        if isNew, (progress ?? 0) == 0 { parts.append("New") }
+        if isNew, (progress ?? 0) == 0 { parts.append("Ny") }
         if let subtitle, !subtitle.isEmpty { parts.append(subtitle) }
-        if progress != nil { parts.append("\(Int((clampedProgress * 100).rounded()))% watched") }
+        if progress != nil { parts.append("\(Int((clampedProgress * 100).rounded())) % sett") }
         return parts.joined(separator: ", ")
     }
 
@@ -90,7 +90,7 @@ public struct PosterCard: View {
                         .clipShape(RoundedRectangle(cornerRadius: Metrics.cardCornerRadius, style: .continuous))
                         .overlay(alignment: .topLeading) {
                             if isNew, (progress ?? 0) == 0 {
-                                Text("NEW")
+                                Text("NY")
                                     .font(.dsTag)
                                     .foregroundStyle(Palette.canvas)
                                     .padding(.horizontal, 8).padding(.vertical, 3)

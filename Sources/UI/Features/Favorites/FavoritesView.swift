@@ -33,13 +33,13 @@ struct FavoritesView: View {
                 } else if sections.isEmpty {
                     EmptyStateView(
                         icon: "heart",
-                        title: "No favorites yet",
-                        message: "Press the heart on any movie, series or channel and it'll show up here."
+                        title: "Inga favoriter än",
+                        message: "Tryck på hjärtat på en film eller serie — eller håll inne på en kanal — så hamnar den här."
                     )
                 } else {
                     ScrollView {
                         VStack(alignment: .leading, spacing: Metrics.shelfSpacing) {
-                            Text("Favorites").font(.dsTitle)
+                            Text("Favoriter").font(.dsTitle)
                                 .accessibilityAddTraits(.isHeader)
                                 .padding(.horizontal, Metrics.screenMargin)
                                 .padding(.top, Metrics.space4)
@@ -125,9 +125,9 @@ struct FavoritesView: View {
         }
 
         sections = [
-            FavSection(id: "Movies", items: movies),
-            FavSection(id: "Series", items: series),
-            FavSection(id: "Channels", items: channels),
+            FavSection(id: "Filmer", items: movies),
+            FavSection(id: "Serier", items: series),
+            FavSection(id: "Kanaler", items: channels),
         ].filter { !$0.items.isEmpty }
     }
 }

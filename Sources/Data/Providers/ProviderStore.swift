@@ -32,7 +32,7 @@ public final class ProviderStore {
     public var hasAnyProvider: Bool { activeID != nil }
 
     public static var demoConfiguration: ProviderConfiguration {
-        ProviderConfiguration(id: demoID, kind: .mock, displayName: "Demo Library")
+        ProviderConfiguration(id: demoID, kind: .mock, displayName: "Demobibliotek")
     }
 
     /// All choices to show in Settings (demo + user providers).

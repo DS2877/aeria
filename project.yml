@@ -8,6 +8,9 @@ options:
   groupSortPosition: top
   generateEmptyDirectories: true
   xcodeVersion: "26.0"
+  # Swedish-market app: Swedish is the development language, so system UI
+  # (player menus, keyboard, alerts) and date/time formatting follow suit.
+  developmentLanguage: sv
 
 packages:
   # Plays the containers AVPlayer can't: MKV, AVI, raw MPEG-TS, rtmp/rtsp.
@@ -62,6 +65,8 @@ targets:
       path: Sources/App/Info.plist
       properties:
         CFBundleDisplayName: Aeria+
+        CFBundleDevelopmentRegion: sv
+        CFBundleLocalizations: [sv]
         UIUserInterfaceStyle: Dark
         # HTTPS-only / system crypto → no custom encryption. Skips the
         # export-compliance prompt on every upload.

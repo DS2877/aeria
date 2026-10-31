@@ -91,7 +91,7 @@ public struct ChannelCard: View {
         }
         .frame(width: Metrics.wideCardWidth, alignment: .leading)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(Text(nowTitle.map { "\(name), now playing \($0)" } ?? name))
+        .accessibilityLabel(Text(nowTitle.map { "\(name), sänds nu: \($0)" } ?? name))
         .accessibilityAddTraits(.isButton)
     }
 

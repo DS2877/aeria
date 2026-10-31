@@ -7,7 +7,7 @@ struct CastRail: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.space2) {
-            Text("Cast")
+            Text("Medverkande")
                 .font(.dsSectionHeader)
                 .foregroundStyle(Palette.textPrimary)
 

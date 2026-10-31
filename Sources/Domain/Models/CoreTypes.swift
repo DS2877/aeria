@@ -51,10 +51,22 @@ public struct Language: Hashable, Codable, Sendable, Comparable {
     }
 
     /// Localised display name for the current locale, falling back to the code.
+    /// The language's Swedish name ("Svenska", "Engelska"). Fixed for the
+    /// common ones so it never depends on the device's language settings;
+    /// anything rarer asks Foundation for its Swedish name.
     public var displayName: String {
-        Locale.current.localizedString(forLanguageCode: code)?.capitalized
+        if let name = Self.swedishNames[code] { return name }
+        return Locale(identifier: "sv").localizedString(forLanguageCode: code)?.capitalized
             ?? code.uppercased()
     }
+
+    private static let swedishNames: [String: String] = [
+        "sv": "Svenska", "en": "Engelska", "no": "Norska", "nb": "Norska", "nn": "Norska",
+        "da": "Danska", "fi": "Finska", "is": "Isländska", "de": "Tyska", "nl": "Nederländska",
+        "fr": "Franska", "es": "Spanska", "it": "Italienska", "pt": "Portugisiska",
+        "pl": "Polska", "cs": "Tjeckiska", "el": "Grekiska", "hu": "Ungerska",
+        "ro": "Rumänska", "tr": "Turkiska", "ru": "Ryska", "uk": "Ukrainska", "ar": "Arabiska",
+    ]
 
     public static func < (lhs: Language, rhs: Language) -> Bool {
         lhs.displayName.localizedCompare(rhs.displayName) == .orderedAscending
@@ -154,10 +166,32 @@ public enum Genre: String, Codable, Sendable, CaseIterable {
     case thriller, war, western, kids, news, sport, reality
     case other
 
+    /// Swedish genre names, as they appear on shelves and filter chips.
     public var displayName: String {
         switch self {
-        case .sciFi: return "Sci-Fi"
-        default:     return rawValue.capitalized
+        case .action:      return "Action"
+        case .adventure:   return "Äventyr"
+        case .animation:   return "Animerat"
+        case .comedy:      return "Komedi"
+        case .crime:       return "Kriminal"
+        case .documentary: return "Dokumentär"
+        case .drama:       return "Drama"
+        case .family:      return "Familj"
+        case .fantasy:     return "Fantasy"
+        case .history:     return "Historia"
+        case .horror:      return "Skräck"
+        case .music:       return "Musik"
+        case .mystery:     return "Mysterium"
+        case .romance:     return "Romantik"
+        case .sciFi:       return "Sci-fi"
+        case .thriller:    return "Thriller"
+        case .war:         return "Krig"
+        case .western:     return "Western"
+        case .kids:        return "Barn"
+        case .news:        return "Nyheter"
+        case .sport:       return "Sport"
+        case .reality:     return "Reality"
+        case .other:       return "Övrigt"
         }
     }
 }
