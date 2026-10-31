@@ -86,6 +86,7 @@ final class HomeScreenshotTests: XCTestCase {
         remote.press(.right)
         sleep(2)
         snap("19-guide-focused")
+        noteFocus(app, "19 after → from rail")
         remote.press(.select)        // preview
         sleep(8)
         snap("20-guide-preview")
@@ -106,6 +107,7 @@ final class HomeScreenshotTests: XCTestCase {
         XCUIRemote.shared.press(.select)
         sleep(3)
         snap("25-guide-after-click")
+        noteFocus(app, "25 after clicking Guide in the rail")
     }
 
     /// Menu on a detail screen goes back one step, not to the sidebar.
@@ -126,6 +128,18 @@ final class HomeScreenshotTests: XCTestCase {
         remote.press(.menu)          // back one step
         sleep(3)
         snap("24-back-on-movies-grid")
+    }
+
+    /// Record what holds focus — the screenshots show *where*, this says *what*.
+    private func noteFocus(_ app: XCUIApplication, _ step: String) {
+        let focused = app.descendants(matching: .any)
+            .element(matching: NSPredicate(format: "hasFocus == true"))
+        let label = focused.exists ? "\(focused.elementType.rawValue) '\(focused.label)'" : "nothing"
+        print("FOCUS[\(step)]: \(label)")
+        let note = XCTAttachment(string: "\(step): \(label)")
+        note.name = "focus-\(step)"
+        note.lifetime = .keepAlways
+        add(note)
     }
 
     private func snap(_ name: String) {

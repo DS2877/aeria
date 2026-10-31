@@ -221,14 +221,16 @@ struct GuideView: View {
                     }
                     .padding(.bottom, Metrics.space7)
                 }
-                // The info pane above has nothing focusable, so pressing →
-                // from the sidebar found no target level with the Guide item
-                // and focus stayed in the rail. The rows are one focus region
-                // whose default — on every entry, not just the first — is
-                // what's on now on the first channel.
-                .focusSection()
-                .defaultFocus($focusedEvent, entryFocusID(model), priority: .userInitiated)
             }
+            // The info pane at the top has nothing focusable, and tvOS only
+            // moves focus to something roughly level with where you are — so
+            // → from the sidebar's Guide item found nothing and focus stayed
+            // in the rail. The *whole* guide (pane included, top to bottom) is
+            // one focus section, so it's always level with the sidebar item;
+            // entering it lands — every time — on what's on now on the first
+            // channel.
+            .focusSection()
+            .defaultFocus($focusedEvent, entryFocusID(model), priority: .userInitiated)
         }
     }
 
