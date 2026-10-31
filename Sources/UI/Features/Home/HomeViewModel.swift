@@ -662,7 +662,9 @@ public final class HomeViewModel {
         var parts: [String] = []
         if let year = movie.year { parts.append(String(year)) }
         if let genre = movie.genres.first { parts.append(genre.displayName) }
-        if let d = movie.durationMinutes { parts.append("\(d / 60)h \(d % 60)m") }
+        if let d = movie.durationMinutes, d > 0 {
+            parts.append(d >= 60 ? "\(d / 60)h \(d % 60)m" : "\(d)m")
+        }
         if movie.quality > .unknown { parts.append(movie.quality.shortLabel) }
         return parts.joined(separator: " · ")
     }
