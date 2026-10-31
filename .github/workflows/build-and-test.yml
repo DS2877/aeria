@@ -6,6 +6,8 @@ name: Build & Test
 on:
   push:
     branches: ["claude/**", "import-progress-checklist"]
+    # Notes-only pushes don't need a Mac build (and would cancel one running).
+    paths-ignore: ["**/*.md", "release/**", "docs/**"]
   pull_request:
   workflow_dispatch:
 
