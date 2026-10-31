@@ -28,6 +28,9 @@ struct HeroBanner: View {
     /// screen behind an expanded menu. Once only, so coming back to Home from
     /// the rail leaves focus where the viewer put it.
     @MainActor private static var claimedLaunchFocus = false
+    /// Bumped when "Home" in the sidebar is clicked → focus the main button.
+    @Environment(\.sectionDiveToken) private var diveToken
+    @Environment(\.isEnabled) private var isEnabled
 
     private let interval: Duration = .seconds(9)
     /// Tall enough to feel cinematic on a 1080-pt canvas while the first
@@ -58,6 +61,9 @@ struct HeroBanner: View {
             .task(id: hero.id) { await resolveOverview(for: hero) }
             .task(id: hero.id) { await startDrift() }
             .task { await claimLaunchFocus(for: hero) }
+            .onChange(of: diveToken) { _, _ in
+                if isEnabled { focusedControl = hero.kind == .movie ? .play : .info }
+            }
             .task(id: heroKey) {
                 if index >= heroes.count { index = 0 }
                 await rotate()
@@ -152,7 +158,6 @@ struct HeroBanner: View {
                     }
                     .buttonStyle(PrimaryButtonStyle())
                     .focused($focusedControl, equals: .play)
-                    .sectionEntryFocus()
                     .accessibilityLabel("Play \(hero.title)")
 
                     Button { onSelect(hero) } label: {
@@ -167,7 +172,6 @@ struct HeroBanner: View {
                     }
                     .buttonStyle(PrimaryButtonStyle())
                     .focused($focusedControl, equals: .info)
-                    .sectionEntryFocus(hero.kind != .movie)
                     .accessibilityLabel("More Info, \(hero.title)")
                 }
 

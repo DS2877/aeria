@@ -69,7 +69,9 @@ struct SidebarShell: View {
     /// it with `resetFocus`, rather than releasing focus and letting the
     /// focus engine pick (it picked the rail's top item, Home).
     @Namespace private var contentScope
-    @Environment(\.resetFocus) private var resetFocus
+    /// Bumped when a sidebar item is clicked; the visible section answers by
+    /// focusing its entry element (`sectionEntryFocus`).
+    @State private var diveToken = 0
 
     private static let lastSectionKey = "sidebar.lastSection.v1"
 
@@ -124,6 +126,7 @@ struct SidebarShell: View {
                 // swallowed Menu on detail screens too.) On Home, Menu is left
                 // alone so it backgrounds the app, per the HIG.
                 .environment(\.contentFocusScope, contentScope)
+                .environment(\.sectionDiveToken, diveToken)
                 .environment(\.returnToSidebar, selection != .home ? {
                     withAnimation(Self.railAnimation) { focusedItem = selection }
                 } : nil)
@@ -249,7 +252,7 @@ struct SidebarShell: View {
         // keeps you in the rail to browse. Focus is *moved* into the content
         // scope — clearing it instead let the engine fall back to the rail's
         // first item and switch to Home.
-        withAnimation(Self.railAnimation) { resetFocus(in: contentScope) }
+        withAnimation(Self.railAnimation) { diveToken &+= 1 }
     }
 
     // MARK: Content
@@ -342,30 +345,63 @@ extension EnvironmentValues {
     }
 }
 
-/// Marks the element focus should land on when the viewer clicks this
-/// section's item in the sidebar (the shell calls `resetFocus` on the content
-/// scope). Only the visible section claims it — hidden, kept-alive sections
-/// are disabled.
-private struct SectionEntryFocus: ViewModifier {
-    let isEntry: Bool
-    @Environment(\.contentFocusScope) private var scope
-    @Environment(\.isEnabled) private var isEnabled
+/// Incremented by the shell each time a sidebar item is clicked.
+private struct SectionDiveTokenKey: EnvironmentKey {
+    static let defaultValue = 0
+}
 
-    @ViewBuilder
+extension EnvironmentValues {
+    var sectionDiveToken: Int {
+        get { self[SectionDiveTokenKey.self] }
+        set { self[SectionDiveTokenKey.self] = newValue }
+    }
+}
+
+/// Marks the element focus should land on when the viewer clicks this
+/// section's item in the sidebar. The shell bumps `sectionDiveToken`; the
+/// visible section's entry element takes focus programmatically (the same
+/// mechanism the Home hero uses at launch — `resetFocus` on the content scope
+/// left focus in the rail). Hidden, kept-alive sections are disabled, so only
+/// the visible one answers.
+private struct SectionEntryFocus: ViewModifier {
+    @Environment(\.isSectionEntry) private var isEntry
+    @Environment(\.sectionDiveToken) private var diveToken
+    @Environment(\.isEnabled) private var isEnabled
+    @FocusState private var focused: Bool
+
     func body(content: Content) -> some View {
-        if let scope {
-            content.prefersDefaultFocus(isEntry && isEnabled, in: scope)
-        } else {
-            content
-        }
+        content
+            .focused($focused)
+            .onChange(of: diveToken) { _, _ in
+                if isEntry && isEnabled { focused = true }
+            }
+    }
+}
+
+/// Set on the card that is a section's entry point; read by the focusable
+/// control inside it (`sectionEntryTarget`).
+private struct IsSectionEntryKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+extension EnvironmentValues {
+    var isSectionEntry: Bool {
+        get { self[IsSectionEntryKey.self] }
+        set { self[IsSectionEntryKey.self] = newValue }
     }
 }
 
 extension View {
-    /// Where focus lands when this section is entered by clicking it in the
-    /// sidebar. Pass `true` on exactly one element per section.
+    /// Marks this card as where focus lands when the section is entered by
+    /// clicking it in the sidebar. Pass `true` on exactly one card per section.
     func sectionEntryFocus(_ isEntry: Bool = true) -> some View {
-        modifier(SectionEntryFocus(isEntry: isEntry))
+        environment(\.isSectionEntry, isEntry)
+    }
+
+    /// Apply to the focusable control inside a card (its Button) — it takes
+    /// focus on a sidebar click when its card is the section's entry.
+    func sectionEntryTarget() -> some View {
+        modifier(SectionEntryFocus())
     }
 }
 

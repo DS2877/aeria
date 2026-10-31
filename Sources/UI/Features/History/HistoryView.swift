@@ -231,6 +231,7 @@ private struct HistoryRowView: View {
             .padding(Metrics.space2)
         }
         .buttonStyle(.card)
+        .sectionEntryTarget()
         .contextMenu {
             if !row.finished {
                 Button(action: onResume) { Label("Resume", systemImage: "play.fill") }

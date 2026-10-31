@@ -79,6 +79,7 @@ public struct ChannelCard: View {
                 .clipShape(RoundedRectangle(cornerRadius: Metrics.cardCornerRadius, style: .continuous))
             }
             .buttonStyle(.card)
+            .sectionEntryTarget()
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(name)

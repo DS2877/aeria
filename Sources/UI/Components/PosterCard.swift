@@ -109,6 +109,7 @@ public struct PosterCard: View {
                 }
             }
             .buttonStyle(.card)
+            .sectionEntryTarget()
 
             VStack(alignment: .leading, spacing: 3) {
                 // With no artwork the generated poster carries the title, so the

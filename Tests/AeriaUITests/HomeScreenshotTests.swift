@@ -130,9 +130,9 @@ final class HomeScreenshotTests: XCTestCase {
             sleep(2)
             snap("30-click-\(name)")
             noteFocus(app, "click \(name)")
-            remote.press(.menu)      // back to the rail, same item
+            remote.press(.left)      // back to the rail (lands on the same item)
             sleep(2)
-            noteFocus(app, "menu after \(name)")
+            noteFocus(app, "left after \(name)")
         }
     }
 

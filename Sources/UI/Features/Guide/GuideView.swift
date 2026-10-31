@@ -87,6 +87,8 @@ struct GuideView: View {
     /// False while another sidebar section is showing — the keep-alive shell
     /// disables hidden sections, which is our cue to stop the preview's sound.
     @Environment(\.isEnabled) private var isEnabled
+    /// Bumped when the Guide item in the sidebar is clicked → dive in.
+    @Environment(\.sectionDiveToken) private var diveToken
     @State private var model: GuideViewModel?
     @State private var path: [AppRoute] = []
 
@@ -129,6 +131,10 @@ struct GuideView: View {
         }
         .onChange(of: isEnabled) { _, enabled in
             if !enabled { stopPreview() }
+        }
+        .onChange(of: diveToken) { _, _ in
+            guard isEnabled, let model else { return }
+            focusedEvent = entryFocusID(model)
         }
         // Keep LIVE badges and progress current while the guide is showing.
         .task(id: isEnabled) {
@@ -377,7 +383,6 @@ struct GuideView: View {
                         }
                         .buttonStyle(.card)
                         .focused($focusedEvent, equals: event.id)
-                        .sectionEntryFocus(event.id == entryID)
                         .accessibilityLabel("\(row.name), \(event.start.formatted(date: .omitted, time: .shortened)), \(event.title)\(event.isLive(at: now) ? ", on now" : "")")
                     }
                 }
