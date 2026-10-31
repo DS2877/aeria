@@ -32,11 +32,41 @@ final class HomeScreenshotTests: XCTestCase {
         sleep(2)
         snap("08-back-to-hero")
 
-        remote.press(.left)
+        // Hero → More Info → the detail screen, then back.
+        remote.press(.right)
+        sleep(1)
+        remote.press(.select)
+        sleep(4)
+        snap("10-movie-detail")
+        remote.press(.down)
+        sleep(2)
+        snap("11-movie-detail-lower")
+        remote.press(.menu)
+        sleep(3)
+
+        // Into the rail — should land on Home, not the item level with focus.
         remote.press(.left)
         remote.press(.left)
         sleep(2)
         snap("09-sidebar")
+
+        // Walk the sections down the rail (focus-driven: each one shows).
+        let sections = ["12-search", "13-live-tv", "14-guide", "15-movies", "16-series"]
+        for name in sections {
+            remote.press(.down)
+            sleep(3)
+            snap(name)
+        }
+
+        // Into the Series grid, open the first show.
+        remote.press(.right)
+        sleep(2)
+        remote.press(.select)
+        sleep(5)
+        snap("17-series-detail")
+        remote.press(.down)
+        sleep(2)
+        snap("18-series-detail-episodes")
     }
 
     private func snap(_ name: String) {
