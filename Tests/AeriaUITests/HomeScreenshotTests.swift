@@ -80,7 +80,11 @@ final class HomeScreenshotTests: XCTestCase {
         sleep(12)
 
         let remote = XCUIRemote.shared
-        remote.press(.right)         // into the guide's first row
+        // Launch focus may sit in the rail (on Guide) — click it to dive in,
+        // which is also what this checks: a click must not jump to Home.
+        remote.press(.select)
+        sleep(2)
+        remote.press(.right)
         sleep(2)
         snap("19-guide-focused")
         remote.press(.select)        // preview

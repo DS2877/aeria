@@ -65,6 +65,11 @@ struct SidebarShell: View {
     /// Section view models outlive the view tree, so revisiting a screen shows
     /// what it already had instead of re-querying.
     @State private var models = SectionModels()
+    /// The content area's focus scope — clicking a rail item moves focus into
+    /// it with `resetFocus`, rather than releasing focus and letting the
+    /// focus engine pick (it picked the rail's top item, Home).
+    @Namespace private var contentScope
+    @Environment(\.resetFocus) private var resetFocus
 
     private static let lastSectionKey = "sidebar.lastSection.v1"
 
@@ -86,6 +91,7 @@ struct SidebarShell: View {
         HStack(spacing: 0) {
             Color.clear.frame(width: Self.collapsed)   // permanent gutter
             content
+                .focusScope(contentScope)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .overlay(alignment: .top) {
                     VStack(spacing: Metrics.space1) {
@@ -236,8 +242,10 @@ struct SidebarShell: View {
         visited.insert(item)
         // Clicking a rail item commits it and dives into the content (the
         // section already switched on focus). Moving up/down without clicking
-        // keeps you in the rail to browse.
-        withAnimation(Self.railAnimation) { focusedItem = nil }
+        // keeps you in the rail to browse. Focus is *moved* into the content
+        // scope — clearing it instead let the engine fall back to the rail's
+        // first item and switch to Home.
+        withAnimation(Self.railAnimation) { resetFocus(in: contentScope) }
     }
 
     // MARK: Content
