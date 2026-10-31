@@ -274,7 +274,7 @@ public struct DeterministicQueryParser: AIQueryParser {
         "hour", "hours", "hr", "hrs", "minute", "minutes", "min", "mins", "long",
         "one", "two", "three", "four", "five", "half",
         // Swedish filler (folded)
-        "nagot", "nagon", "nagra", "med", "och", "eller", "jag", "vill", "se", "titta", "kolla",
+        "nagot", "nagon", "nagra", "en", "med", "och", "eller", "jag", "vill", "se", "titta", "kolla",
         "pa", "ett", "som", "for", "till", "av", "om", "det", "den", "de", "ar", "har",
         "kan", "du", "mig", "oss", "vi", "bra", "basta", "bast", "liknande", "typ", "tips",
         "ny", "nya", "nytt", "gammal", "gamla", "fran", "efter", "innan", "fore", "an",
