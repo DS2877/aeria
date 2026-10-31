@@ -35,7 +35,7 @@ public enum RelevanceFilter {
     /// understand, and the English-speaking world. Finland, Iceland and
     /// continental Europe are deliberately out — a typical Swede doesn't watch
     /// Finnish, Polish or German TV.
-    public static let swedishMarket: Set<String> = ["SE", "NO", "DK"].union(english)
+    public static let swedishMarket: Set<String> = Set(["SE", "NO", "DK"]).union(english)
 
     /// ISO country codes kept. Everything with no detected country is also kept
     /// unless a foreign marker or a foreign script is found (generic /
