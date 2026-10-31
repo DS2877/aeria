@@ -68,24 +68,35 @@ final class HomeScreenshotTests: XCTestCase {
         sleep(2)
         snap("18-series-detail-episodes")
 
-        // Back out to the rail, up to the Guide, preview a channel.
-        remote.press(.menu)
+    }
+
+    /// Guide: one click previews the channel in the mini player, focus stays
+    /// in the guide.
+    func testCaptureGuidePreview() {
+        let app = XCUIApplication()
+        app.launchArguments += ["-AeriaScreenshots"]
+        app.launch()
+        sleep(12)
+
+        let remote = XCUIRemote.shared
+        remote.press(.left)          // rail, on Home
         sleep(2)
-        remote.press(.menu)
-        sleep(2)
-        remote.press(.up)
-        sleep(1)
-        remote.press(.up)
-        sleep(3)
-        remote.press(.right)
+        for _ in 0..<3 {             // Search → Live TV → Guide
+            remote.press(.down)
+            sleep(2)
+        }
+        remote.press(.right)         // into the guide's first row
         sleep(2)
         snap("19-guide-focused")
-        remote.press(.select)
+        remote.press(.select)        // preview
         sleep(8)
         snap("20-guide-preview")
-        remote.press(.down)
+        remote.press(.down)          // keep browsing while it plays
         sleep(2)
         snap("21-guide-preview-browsing")
+        remote.press(.menu)          // closes the preview, stays in the guide
+        sleep(2)
+        snap("22-guide-preview-closed")
     }
 
     private func snap(_ name: String) {

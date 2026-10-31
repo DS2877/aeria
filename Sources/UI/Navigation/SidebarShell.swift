@@ -184,6 +184,15 @@ struct SidebarShell: View {
         .shadow(color: .black.opacity(railExpanded ? 0.6 : 0), radius: 44, x: 14)
         .animation(Self.railAnimation, value: railExpanded)
         .focusSection()
+        // Menu in the rail on any section but Home goes Home first (the Apple
+        // TV app's behaviour); only Menu on Home leaves the app.
+        .onExitCommand(perform: selection != .home ? ({
+            withAnimation(Self.railAnimation) {
+                selection = .home
+                visited.insert(.home)
+                focusedItem = .home
+            }
+        } as () -> Void) : nil)
         // Entering the rail always lands on the section you're *in* — not on
         // whichever item happens to sit level with the focused card (tvOS's
         // geometric default). `.userInitiated` makes this apply on every
