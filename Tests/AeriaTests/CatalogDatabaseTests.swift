@@ -352,7 +352,8 @@ final class CatalogDatabaseTests: XCTestCase {
             [movie("a", "Kept A"), movie("b", "Kept B"), movie("c", "Removed C")], generation: gen1
         )
         try await database.finishGeneration(gen1)
-        XCTAssertEqual(try await database.movieCount(.none, .unfiltered), 3)
+        let countAfterFirst = try await database.movieCount(.none, .unfiltered)
+        XCTAssertEqual(countAfterFirst, 3)
 
         // A refresh that no longer sees "Removed C".
         let gen2 = await database.nextGeneration()
@@ -365,7 +366,8 @@ final class CatalogDatabaseTests: XCTestCase {
         // The orphaned genre rows for "Removed C" are gone too.
         var horror = CatalogFilter.none
         horror.genres = [.drama]
-        XCTAssertEqual(try await database.movieCount(horror, .unfiltered), 2)
+        let dramaCount = try await database.movieCount(horror, .unfiltered)
+        XCTAssertEqual(dramaCount, 2)
     }
 
     // MARK: - Scale
