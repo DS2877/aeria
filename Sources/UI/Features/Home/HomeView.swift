@@ -9,6 +9,8 @@ struct HomeView: View {
     @State private var path: [AppRoute] = []
     /// Playing a Continue Watching card straight from Home, no detail detour.
     @State private var playback: PlaybackItem?
+    /// A channel card was clicked — it plays straight away.
+    @State private var watching: CatalogID?
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -40,6 +42,7 @@ struct HomeView: View {
             .appThemeBackground()
             .appRouteDestinations()
         }
+        .liveChannelPlayer($watching)
         .fullScreenCover(item: $playback) { item in
             PlayerScreen(
                 item: item,
@@ -207,7 +210,7 @@ struct HomeView: View {
                         // Continue Watching when there is one, else on top.
                         let tonightAfterResume = model.content.rows.first?.id == HomeRowKind.continueWatching.rawValue
                         if !model.content.tonight.isEmpty, !tonightAfterResume {
-                            TonightRail(items: model.content.tonight)
+                            TonightRail(items: model.content.tonight, onSelect: selectTonight)
                         }
 
                         ForEach(model.content.rows) { row in
@@ -217,7 +220,7 @@ struct HomeView: View {
                             }
                             if tonightAfterResume, row.id == HomeRowKind.continueWatching.rawValue,
                                !model.content.tonight.isEmpty {
-                                TonightRail(items: model.content.tonight)
+                                TonightRail(items: model.content.tonight, onSelect: selectTonight)
                             }
                         }
                     }
@@ -279,8 +282,11 @@ struct HomeView: View {
                 nowTitle: card.subtitle,
                 quality: .unknown,
                 nowProgress: card.liveProgress,
-                action: { navigate(card) }
+                action: { watching = card.id }
             )
+            .contextMenu {
+                ChannelContextMenu(channelID: card.id) { navigate(card) }
+            }
         case .movie, .series:
             PosterCard(
                 title: card.title,
@@ -293,6 +299,16 @@ struct HomeView: View {
                 action: { activate(card) }
             )
             .contextMenu { resumeMenu(for: card) }
+        }
+    }
+
+    /// Tonight: something on now plays; something later opens the channel's
+    /// schedule.
+    private func selectTonight(_ item: TonightItem) {
+        if item.isLiveNow {
+            watching = item.channelID
+        } else {
+            path.append(.channel(item.channelID))
         }
     }
 
@@ -334,6 +350,7 @@ struct HomeView: View {
 /// The "Tonight" discovery rail — EPG-driven.
 struct TonightRail: View {
     let items: [TonightItem]
+    let onSelect: (TonightItem) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.space2) {
@@ -343,7 +360,7 @@ struct TonightRail: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 LazyHStack(spacing: Metrics.space2) {
                     ForEach(items) { item in
-                        NavigationLink(value: AppRoute.channel(item.channelID)) {
+                        Button { onSelect(item) } label: {
                             VStack(alignment: .leading, spacing: 8) {
                                 HStack(spacing: Metrics.space1) {
                                     Text(item.time)

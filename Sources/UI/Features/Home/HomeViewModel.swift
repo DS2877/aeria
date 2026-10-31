@@ -106,6 +106,8 @@ public final class HomeViewModel {
         let recentChannelIDs = channelHistory.recent(limit: 16)
         // Favourite movies / series, most recently hearted first — the "My List" row.
         let favoriteIDs = favorites.all().filter { $0.kind != .liveChannel }.map(\.itemID)
+        // Favourite channels — the "Your Channels" row.
+        let favoriteChannelIDs = favorites.all().filter { $0.kind == .liveChannel }.map(\.itemID)
 
         guard await repository.isReady() else {
             if content.isEmpty { content = .empty }
@@ -128,12 +130,18 @@ public final class HomeViewModel {
         // and the series come back as shells (the cards only show a poster).
         let favMovies = await repository.movies(ids: favoriteIDs)
         let favSeries = await repository.seriesShells(ids: favoriteIDs)
+        let favChannelsByID = Dictionary(
+            (await repository.channels(ids: favoriteChannelIDs)).map { ($0.id, $0) },
+            uniquingKeysWith: { a, _ in a })
+        // In the order they were hearted, newest first.
+        let favChannels = favoriteChannelIDs.compactMap { favChannelsByID[$0] }
         guard !Task.isCancelled else { return }
 
         // Only the Live Now strip needs "on now" for the first paint.
         let nowWindow = DateInterval(start: now.addingTimeInterval(-3600),
                                      end: now.addingTimeInterval(6 * 3600))
-        let liveEPG = await repository.epgIndex(forEPGIDs: liveNow.compactMap(\.epgID), in: nowWindow)
+        let liveEPG = await repository.epgIndex(forEPGIDs: (liveNow + favChannels).compactMap(\.epgID),
+                                                in: nowWindow)
         guard !Task.isCancelled else { return }
 
         let fastCatalog = Catalog(channels: liveNow,
@@ -142,7 +150,7 @@ public final class HomeViewModel {
                                   epg: liveEPG.values.flatMap { $0 })
         let fastInputs = ShapeInputs(catalog: fastCatalog, epg: liveEPG, liveNow: liveNow,
                                      recentChannelIDs: recentChannelIDs, resume: resume,
-                                     favoriteIDs: favoriteIDs)
+                                     favoriteIDs: favoriteIDs, favoriteChannels: favChannels)
         let fastContent = await Self.shape(fastInputs, progress: progress, prefs: prefs,
                                            ratings: ratings, now: now)
         guard !Task.isCancelled else { return }
@@ -193,7 +201,7 @@ public final class HomeViewModel {
 
         let allMovies = Self.uniqued(favMovies + newestMovies + resumeMovies + genreMovies + langMovies + subMovies + becauseMovies)
         let allSeries = Self.uniqued(favSeries + newestSeries + resumeSeries + genreSeries + becauseSeries)
-        let channels = Self.uniqued(liveNow + guideChannels)
+        let channels = Self.uniqued(liveNow + favChannels + guideChannels)
 
         let fullWindow = DateInterval(start: now.addingTimeInterval(-3600), end: now.addingTimeInterval(18 * 3600))
         let epg = await repository.epgIndex(forEPGIDs: channels.compactMap(\.epgID), in: fullWindow)
@@ -203,7 +211,7 @@ public final class HomeViewModel {
                                   epg: epg.values.flatMap { $0 })
         let fullInputs = ShapeInputs(catalog: fullCatalog, epg: epg, liveNow: liveNow,
                                      recentChannelIDs: recentChannelIDs, resume: resume,
-                                     favoriteIDs: favoriteIDs)
+                                     favoriteIDs: favoriteIDs, favoriteChannels: favChannels)
         let shaped = await Self.shape(fullInputs, progress: progress, prefs: prefs,
                                       ratings: ratings, now: now)
         guard !Task.isCancelled else { return }
@@ -239,6 +247,7 @@ public final class HomeViewModel {
         let recentChannelIDs: [CatalogID]
         let resume: [ResumePoint]
         let favoriteIDs: [CatalogID]
+        let favoriteChannels: [Channel]
     }
 
     /// Runs `makeContent` off the main actor — sorting and shaping a few
@@ -252,7 +261,8 @@ public final class HomeViewModel {
             HomeViewModel.makeContent(catalog: inputs.catalog, epg: inputs.epg, progress: progress,
                         prefs: prefs, ratings: ratings, liveNow: inputs.liveNow,
                         recentChannelIDs: inputs.recentChannelIDs, now: now,
-                        resumePoints: inputs.resume, favoriteIDs: inputs.favoriteIDs)
+                        resumePoints: inputs.resume, favoriteIDs: inputs.favoriteIDs,
+                        favoriteChannels: inputs.favoriteChannels)
         }.value
     }
 
@@ -324,7 +334,8 @@ public final class HomeViewModel {
         prefs: UserPreferences, ratings: [String: Double], liveNow: [Channel],
         recentChannelIDs: [CatalogID] = [], now: Date,
         resumePoints: [ResumePoint]? = nil,
-        favoriteIDs: [CatalogID] = []
+        favoriteIDs: [CatalogID] = [],
+        favoriteChannels: [Channel] = []
     ) -> HomeContent {
         let enabled = Set(prefs.homeRows)
         var rows: [HomeRow] = []
@@ -360,6 +371,12 @@ public final class HomeViewModel {
             return HomeRow(id: HomeRowKind.myList.rawValue, title: "My List",
                            subtitle: nil, cards: Array(cards.prefix(24)))
         }()
+
+        // "Your Channels" — the hearted channels with what's on, right under
+        // Continue Watching: the first thing an IPTV viewer reaches for.
+        let yourChannelsRow: HomeRow? = favoriteChannels.isEmpty ? nil
+            : HomeRow(id: "your-channels", title: "Your Channels", subtitle: nil,
+                      cards: favoriteChannels.prefix(24).map { channelCard($0, epg: epg, now: now) })
 
         let liveCards = liveNow.prefix(16).map { channelCard($0, epg: epg, now: now) }
         add(.liveNow, "Live Now", Array(liveCards))
@@ -431,6 +448,7 @@ public final class HomeViewModel {
             rows.append(HomeRow(id: HomeRowKind.topRated.rawValue, title: "Top 10 in Your Library",
                                 subtitle: "Ranked by TMDB rating", cards: Array(topRated), style: .ranked))
         }
+        if let yourChannelsRow { rows.append(yourChannelsRow) }
         if let myListRow { rows.append(myListRow) }
         rows.append(contentsOf: becauseRows)
         if let recentChannelRow { rows.append(recentChannelRow) }
@@ -468,6 +486,7 @@ public final class HomeViewModel {
         // Float the position-less rows up just below Continue Watching, in a
         // deliberate order: My List, Top Rated, Because You Watched, Recently Watched.
         var floatIDs: [String] = []
+        if let id = yourChannelsRow?.id { floatIDs.append(id) }
         if myListRow != nil { floatIDs.append(HomeRowKind.myList.rawValue) }
         floatIDs.append(HomeRowKind.topRated.rawValue)
         floatIDs.append(contentsOf: becauseRows.map(\.id))

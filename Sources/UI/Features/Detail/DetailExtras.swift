@@ -81,25 +81,35 @@ struct RelatedRail: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     LazyHStack(alignment: .top, spacing: Metrics.cardSpacing) {
                         ForEach(items) { item in
-                            NavigationLink(value: item.route) {
-                                VStack(alignment: .leading, spacing: Metrics.space1) {
+                            // Only the artwork lifts on focus; the caption sits
+                            // below it so it's never clipped by the card.
+                            VStack(alignment: .leading, spacing: Metrics.space1 + 2) {
+                                NavigationLink(value: item.route) {
                                     EnrichedArtwork(ref: item.artworkRef, providerURL: item.posterURL,
                                                     aspect: 2.0 / 3.0, style: .poster)
                                         .frame(width: Metrics.posterWidth, height: Metrics.posterHeight)
                                         .clipShape(RoundedRectangle(cornerRadius: Metrics.cardCornerRadius,
                                                                     style: .continuous))
-                                    Text(item.title)
-                                        .font(.dsCaption)
-                                        .foregroundStyle(Palette.textPrimary)
-                                        .lineLimit(1)
-                                        .frame(width: Metrics.posterWidth, alignment: .leading)
+                                }
+                                .buttonStyle(.card)
+                                .accessibilityLabel(item.title)
+                                Text(item.title)
+                                    .font(.dsCaption)
+                                    .foregroundStyle(Palette.textPrimary)
+                                    .lineLimit(1)
+                                if let year = item.year {
+                                    Text(String(year))
+                                        .font(.dsTag)
+                                        .foregroundStyle(Palette.textTertiary)
                                 }
                             }
-                            .buttonStyle(.card)
+                            .frame(width: Metrics.posterWidth, alignment: .leading)
                         }
                     }
                     .padding(.vertical, Metrics.space3)
                 }
+                // The focused card grows past the row's edge — don't clip it.
+                .scrollClipDisabled()
                 .focusSection()
             }
         }

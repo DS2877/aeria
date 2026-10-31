@@ -195,6 +195,8 @@ struct LiveTVBrowseView: View {
     @Environment(SectionModels.self) private var models
     @State private var model: LiveTVBrowseViewModel?
     @State private var path: [AppRoute] = []
+    /// Click a channel → it plays (info and favourite are on long-press).
+    @State private var watching: CatalogID?
 
     private let columns = Array(repeating: GridItem(.fixed(Metrics.wideCardWidth), spacing: Metrics.cardSpacing),
                                 count: 4)
@@ -211,6 +213,7 @@ struct LiveTVBrowseView: View {
             .appThemeBackground()
             .appRouteDestinations()
         }
+        .liveChannelPlayer($watching)
         .task(id: models.generation) {
             let shared = models.liveTV(env)
             model = shared
@@ -262,8 +265,11 @@ struct LiveTVBrowseView: View {
                                     quality: row.quality,
                                     nowProgress: row.nowProgress,
                                     channelNumber: row.number,
-                                    action: { path.append(.channel(row.id)) }
+                                    action: { watching = row.id }
                                 )
+                                .contextMenu {
+                                    ChannelContextMenu(channelID: row.id) { path.append(.channel(row.id)) }
+                                }
                                 .id(row.id)
                                 .task { await model.loadMoreIfNeeded(currentItem: row) }
                             }

@@ -4,6 +4,10 @@ struct FavoritesView: View {
     @Environment(AppEnvironment.self) private var env
     @State private var sections: [FavSection] = []
     @State private var path: [AppRoute] = []
+    /// A favourite channel was clicked — it plays straight away.
+    @State private var watching: CatalogID?
+    private let channelColumns = Array(repeating: GridItem(.fixed(Metrics.wideCardWidth),
+                                                           spacing: Metrics.cardSpacing), count: 4)
 
     private let columns = Array(repeating: GridItem(.fixed(Metrics.posterWidth), spacing: Metrics.cardSpacing),
                                 count: 5)
@@ -43,14 +47,31 @@ struct FavoritesView: View {
                             ForEach(sections) { section in
                                 VStack(alignment: .leading, spacing: Metrics.space2) {
                                     SectionHeader(section.id).padding(.horizontal, Metrics.screenMargin)
-                                    LazyVGrid(columns: columns, alignment: .leading, spacing: Metrics.gridSpacing) {
-                                        ForEach(section.items) { item in
-                                            PosterCard(title: item.title, subtitle: item.subtitle,
-                                                       artworkURL: item.art, ref: item.ref,
-                                                       action: { path.append(item.route) })
+                                    if section.items.first.map({ Self.isChannel($0.route) }) == true {
+                                        // Channels: wide logo cards that play on click.
+                                        LazyVGrid(columns: channelColumns, alignment: .leading,
+                                                  spacing: Metrics.gridSpacing) {
+                                            ForEach(section.items) { item in
+                                                ChannelCard(name: item.title, logoURL: item.art,
+                                                            nowTitle: item.subtitle) { watching = item.id }
+                                                    .contextMenu {
+                                                        ChannelContextMenu(channelID: item.id) {
+                                                            path.append(item.route)
+                                                        }
+                                                    }
+                                            }
                                         }
+                                        .padding(.horizontal, Metrics.screenMargin)
+                                    } else {
+                                        LazyVGrid(columns: columns, alignment: .leading, spacing: Metrics.gridSpacing) {
+                                            ForEach(section.items) { item in
+                                                PosterCard(title: item.title, subtitle: item.subtitle,
+                                                           artworkURL: item.art, ref: item.ref,
+                                                           action: { path.append(item.route) })
+                                            }
+                                        }
+                                        .padding(.horizontal, Metrics.screenMargin)
                                     }
-                                    .padding(.horizontal, Metrics.screenMargin)
                                 }
                             }
                         }
@@ -61,10 +82,16 @@ struct FavoritesView: View {
             .appThemeBackground()
             .appRouteDestinations()
         }
+        .liveChannelPlayer($watching)
         // Keyed on the *set* of favourites, so it reloads when you heart or
         // unheart something (including on a detail screen) and stays put —
         // scroll and focus intact — when you simply come back from one.
         .task(id: env.favorites.revision) { await reload() }
+    }
+
+    private static func isChannel(_ route: AppRoute) -> Bool {
+        if case .channel = route { return true }
+        return false
     }
 
     private func reload() async {

@@ -9,6 +9,8 @@ struct SearchView: View {
     @Environment(SectionModels.self) private var models
     @State private var model: SearchViewModel?
     @State private var path: [AppRoute] = []
+    /// A channel (or a programme on now) was clicked — it plays straight away.
+    @State private var watching: CatalogID?
 
     /// Shown on the empty screen — they double as a hint of what Search
     /// understands. Tapping one runs it.
@@ -45,6 +47,7 @@ struct SearchView: View {
             .appThemeBackground()
             .appRouteDestinations()
         }
+        .liveChannelPlayer($watching)
         // Shared, so coming back to Search still shows your last results.
         // Re-fetched when the store resets (provider switch).
         .task(id: models.generation) { model = models.search(env) }
@@ -119,13 +122,25 @@ struct SearchView: View {
                             nowTitle: now?.title, quality: channel.quality,
                             nowProgress: now.map { $0.progress(at: .now) },
                             channelNumber: channel.sortIndex) {
-                    open(.channel(channel.id), model)
+                    model.noteResultOpened()
+                    watching = channel.id
+                }
+                .contextMenu {
+                    ChannelContextMenu(channelID: channel.id) { open(.channel(channel.id), model) }
                 }
             }
         }
         if !model.programmes.isEmpty {
             Shelf(title: "On TV", subtitle: "Today in the guide", items: model.programmes) { hit in
-                ProgrammeCard(hit: hit) { open(.channel(hit.channel.id), model) }
+                // On now → watch it; later → the channel's schedule.
+                ProgrammeCard(hit: hit) {
+                    if hit.event.isLive(at: .now) {
+                        model.noteResultOpened()
+                        watching = hit.channel.id
+                    } else {
+                        open(.channel(hit.channel.id), model)
+                    }
+                }
             }
         }
         if !model.movies.isEmpty {
@@ -157,7 +172,7 @@ struct SearchView: View {
                 switch result.item {
                 case .movie(let m):   movieCard(m, model)
                 case .series(let s):  seriesCard(s, model)
-                case .channel(let c): ChannelCard(name: c.name, logoURL: c.logoURL) { open(.channel(c.id), model) }
+                case .channel(let c): ChannelCard(name: c.name, logoURL: c.logoURL) { watching = c.id }
                 }
             }
         }
