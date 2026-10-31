@@ -67,6 +67,25 @@ final class HomeScreenshotTests: XCTestCase {
         remote.press(.down)
         sleep(2)
         snap("18-series-detail-episodes")
+
+        // Back out to the rail, up to the Guide, preview a channel.
+        remote.press(.menu)
+        sleep(2)
+        remote.press(.menu)
+        sleep(2)
+        remote.press(.up)
+        sleep(1)
+        remote.press(.up)
+        sleep(3)
+        remote.press(.right)
+        sleep(2)
+        snap("19-guide-focused")
+        remote.press(.select)
+        sleep(8)
+        snap("20-guide-preview")
+        remote.press(.down)
+        sleep(2)
+        snap("21-guide-preview-browsing")
     }
 
     private func snap(_ name: String) {
