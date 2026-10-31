@@ -482,9 +482,12 @@ public final class AppEnvironment {
         return playback(forEpisode: ordered[index + 1], seriesTitle: series.title)
     }
 
-    public func playback(forChannel id: CatalogID) async -> PlaybackItem? {
+    /// `recordView: false` for previews (the Guide's mini player) — a glance
+    /// shouldn't count as watching, nor reshuffle "your regulars first" while
+    /// the viewer is still browsing.
+    public func playback(forChannel id: CatalogID, recordView: Bool = true) async -> PlaybackItem? {
         guard let channel = await repository.channel(id: id) else { return nil }
-        recordChannelView(channel.id)
+        if recordView { recordChannelView(channel.id) }
         return PlaybackItem(
             id: channel.id,
             kind: .liveChannel,

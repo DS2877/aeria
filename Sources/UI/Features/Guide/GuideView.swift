@@ -70,8 +70,21 @@ final class GuideViewModel {
 struct GuideView: View {
     @Environment(AppEnvironment.self) private var env
     @Environment(SectionModels.self) private var models
+    /// False while another sidebar section is showing — the keep-alive shell
+    /// disables hidden sections, which is our cue to stop the preview's sound.
+    @Environment(\.isEnabled) private var isEnabled
     @State private var model: GuideViewModel?
     @State private var path: [AppRoute] = []
+
+    /// The programme under focus — drives the info pane.
+    @FocusState private var focusedEvent: String?
+    /// The channel playing in the mini player (one click), and its stream.
+    @State private var previewRow: GuideChannelRow?
+    @State private var previewItem: PlaybackItem?
+    /// Full-screen playback (a second click on the previewed channel).
+    @State private var fullScreen: PlaybackItem?
+    /// Re-open the preview on this channel when full screen closes.
+    @State private var resumePreviewAfterFullScreen: GuideChannelRow?
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -98,6 +111,78 @@ struct GuideView: View {
             models.markLoaded(.guide, revision: revision)
             Task { await model?.load() }
         }
+        .onChange(of: isEnabled) { _, enabled in
+            if !enabled { stopPreview() }
+        }
+        // Menu with a preview running closes the preview first; otherwise it
+        // falls through to the shell (back to the sidebar).
+        .onExitCommand(perform: previewItem != nil ? ({ stopPreview() } as () -> Void) : nil)
+        .fullScreenCover(item: $fullScreen, onDismiss: {
+            if let row = resumePreviewAfterFullScreen {
+                resumePreviewAfterFullScreen = nil
+                startPreview(row)
+            }
+        }) { item in
+            PlayerScreen(
+                item: item,
+                preferredAudio: env.preferences.preferences.preferredAudioLanguages,
+                preferredSubtitle: env.preferences.preferences.preferredSubtitleLanguage
+            ) { id, kind, position, duration in
+                env.recordProgress(id: id, kind: kind, position: position, duration: duration)
+            }
+        }
+    }
+
+    // MARK: - Preview
+
+    /// First click: play the channel in the mini player and stay in the guide.
+    /// Second click on the same channel: full screen.
+    private func activate(_ row: GuideChannelRow) {
+        if previewRow?.id == row.id, previewItem != nil {
+            openFullScreen(row)
+        } else {
+            startPreview(row)
+        }
+    }
+
+    private func startPreview(_ row: GuideChannelRow) {
+        previewRow = row
+        Task { @MainActor in
+            let item = await env.playback(forChannel: row.id, recordView: false)
+            guard previewRow?.id == row.id else { return }   // moved on meanwhile
+            previewItem = item
+        }
+    }
+
+    private func stopPreview() {
+        previewItem = nil
+        previewRow = nil
+    }
+
+    private func openFullScreen(_ row: GuideChannelRow) {
+        // Release the preview's connection before opening the full stream —
+        // many providers allow only one at a time.
+        previewItem = nil
+        resumePreviewAfterFullScreen = row
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(250))
+            fullScreen = await env.playback(forChannel: row.id)
+        }
+    }
+
+    /// The event the info pane describes: the focused programme, else what's
+    /// on now on the previewed channel.
+    private func paneEvent(_ model: GuideViewModel) -> (row: GuideChannelRow, event: EPGEvent)? {
+        if let id = focusedEvent {
+            for row in model.rows {
+                if let event = row.events.first(where: { $0.id == id }) { return (row, event) }
+            }
+        }
+        if let row = previewRow,
+           let event = row.events.first(where: { $0.isLive(at: model.now) }) ?? row.events.first {
+            return (row, event)
+        }
+        return nil
     }
 
     @ViewBuilder
@@ -114,18 +199,13 @@ struct GuideView: View {
             )
         } else {
             VStack(spacing: 0) {
-                HStack {
-                    Text("TV Guide").font(.dsTitle).accessibilityAddTraits(.isHeader)
-                    Spacer()
-                    Text(model.now.formatted(date: .abbreviated, time: .shortened))
-                        .font(.dsCaption).foregroundStyle(Palette.textTertiary)
-                }
-                .padding(.horizontal, Metrics.screenMargin)
-                .padding(.top, Metrics.space3)
-                .padding(.bottom, Metrics.space2)
-                .background(Palette.canvas)
-                .overlay(alignment: .bottom) { Rectangle().fill(Palette.hairline).frame(height: 1) }
-                .zIndex(1)
+                infoPane(model)
+                    .padding(.horizontal, Metrics.screenMargin)
+                    .padding(.top, Metrics.space3)
+                    .padding(.bottom, Metrics.space3)
+                    .background(Palette.canvas)
+                    .overlay(alignment: .bottom) { Rectangle().fill(Palette.hairline).frame(height: 1) }
+                    .zIndex(1)
 
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: Metrics.space3) {
@@ -146,24 +226,117 @@ struct GuideView: View {
         }
     }
 
+    /// Top of the guide: what the focused programme is, and the mini player.
+    private func infoPane(_ model: GuideViewModel) -> some View {
+        HStack(alignment: .top, spacing: Metrics.space5) {
+            VStack(alignment: .leading, spacing: Metrics.space1) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text("TV Guide").font(.dsSectionHeader).accessibilityAddTraits(.isHeader)
+                    Text(model.now.formatted(date: .abbreviated, time: .shortened))
+                        .font(.dsCaption).foregroundStyle(Palette.textTertiary)
+                }
+                if let pane = paneEvent(model) {
+                    let row = pane.row, event = pane.event
+                    Text(row.name)
+                        .font(.dsTag)
+                        .foregroundStyle(Palette.textSecondary)
+                        .textCase(.uppercase)
+                        .tracking(Metrics.eyebrowTracking)
+                        .padding(.top, Metrics.space2)
+                    Text(event.title)
+                        .font(.dsTitle)
+                        .lineLimit(2)
+                    HStack(spacing: Metrics.space1) {
+                        Text("\(event.start.formatted(date: .omitted, time: .shortened))–\(event.stop.formatted(date: .omitted, time: .shortened))")
+                            .font(.dsCaption)
+                            .foregroundStyle(event.isLive(at: model.now) ? Palette.accent : Palette.textTertiary)
+                        if event.isLive(at: model.now) { LiveBadge() }
+                    }
+                    if let about = event.description ?? event.subtitle, !about.isEmpty {
+                        Text(about)
+                            .font(.dsCaption)
+                            .foregroundStyle(Palette.textSecondary)
+                            .lineLimit(3)
+                    }
+                } else {
+                    Text("Select a programme to preview the channel here. Select it again to watch full screen.")
+                        .font(.dsCaption)
+                        .foregroundStyle(Palette.textTertiary)
+                        .padding(.top, Metrics.space2)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .animation(.easeOut(duration: 0.15), value: focusedEvent)
+
+            previewWindow
+        }
+        .frame(height: Self.paneHeight)
+    }
+
+    private static let paneHeight: CGFloat = 300
+    private static let previewWidth: CGFloat = paneHeight * 16 / 9
+
+    @ViewBuilder
+    private var previewWindow: some View {
+        ZStack {
+            if let item = previewItem {
+                GuidePreviewPlayer(item: item)
+                    .transition(.opacity)
+            } else {
+                RoundedRectangle(cornerRadius: Metrics.cornerRadius, style: .continuous)
+                    .fill(Palette.surface)
+                Image(systemName: "play.tv")
+                    .font(.system(size: 54, weight: .light))
+                    .foregroundStyle(Palette.textTertiary)
+            }
+        }
+        .frame(width: Self.previewWidth, height: Self.paneHeight)
+        .clipShape(RoundedRectangle(cornerRadius: Metrics.cornerRadius, style: .continuous))
+        .overlay(alignment: .bottomLeading) {
+            if previewItem != nil, let row = previewRow {
+                HStack(spacing: 8) {
+                    LiveBadge()
+                    Text(row.name).font(.dsTag).lineLimit(1)
+                    Text("· Select again for full screen")
+                        .font(.dsTag)
+                        .foregroundStyle(.white.opacity(0.7))
+                        .lineLimit(1)
+                }
+                .padding(.horizontal, 12).padding(.vertical, 6)
+                .background(.ultraThinMaterial, in: Capsule())
+                .padding(12)
+            }
+        }
+        .animation(.easeInOut(duration: 0.25), value: previewItem?.id)
+    }
+
     private func channelRow(_ row: GuideChannelRow, now: Date) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(row.name)
-                .font(.dsTag)
-                .foregroundStyle(Palette.textSecondary)
-                .textCase(.uppercase)
-                .tracking(Metrics.eyebrowTracking)
-                .padding(.horizontal, Metrics.screenMargin)
+            HStack(spacing: Metrics.space1) {
+                Text(row.name)
+                    .font(.dsTag)
+                    .foregroundStyle(previewRow?.id == row.id ? Palette.accent : Palette.textSecondary)
+                    .textCase(.uppercase)
+                    .tracking(Metrics.eyebrowTracking)
+                if previewRow?.id == row.id {
+                    Image(systemName: "speaker.wave.2.fill")
+                        .font(.system(size: 14))
+                        .foregroundStyle(Palette.accent)
+                        .accessibilityLabel("Previewing")
+                }
+            }
+            .padding(.horizontal, Metrics.screenMargin)
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: Metrics.space1) {
                     ForEach(row.events.prefix(14)) { event in
                         Button {
-                            path.append(.channel(row.id))
+                            activate(row)
                         } label: {
                             ProgrammeCell(event: event, now: now)
                         }
                         .buttonStyle(.card)
+                        .focused($focusedEvent, equals: event.id)
                         .accessibilityLabel("\(row.name), \(event.start.formatted(date: .omitted, time: .shortened)), \(event.title)\(event.isLive(at: now) ? ", on now" : "")")
                     }
                 }
