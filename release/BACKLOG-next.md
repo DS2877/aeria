@@ -22,6 +22,8 @@ build. Prefer small, additive, self-contained commits.
   Don't wait for a local build; the user does zero manual steps and tests via
   TestFlight on the Apple TV. (On the user's Mac, never `git checkout main` —
   it conflicts with the skip-worktree token file.)
+- UI language: **English** (owner decision 2026-10-31 — international feel).
+  Don't translate the interface; the search parser understands Swedish too.
 - Product scope: **Swedish market only** (2026-10-31). Foreign content is
   dropped at import by `RelevanceFilter` / `CatalogWriter`; bump
   `RelevanceFilter.rulesVersion` whenever the rules change.

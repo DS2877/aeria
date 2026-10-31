@@ -61,7 +61,7 @@ Swedish summary for the owner at the bottom.
 
 | # | Finding | P | Status |
 |---|---|---|---|
-| A1 | **The interface is in English** while the product is Swedish-market only. Every label, button, empty state and error should be in Swedish. | P1 | Done (CI) |
+| A1 | Interface language. | — | **Decision: stays English** (international feel). Search still understands Swedish queries. |
 | A2 | Times follow the device region (24 h on a Swedish Apple TV) — correct. | — | OK |
 
 ---
@@ -78,8 +78,8 @@ reviewed where the simulator can show it; not yet tried on a real TV.
   and favourite (`ChannelContextMenu`); Home "Dina kanaler"; Favorites shows
   channel cards; Info-panel "Kanaler" tab while watching live.
 - More Like This captions outside the focus lift.
-- Swedish UI: all strings; fixed Swedish genre/language names;
-  `developmentLanguage: sv`, `CFBundleLocalizations: [sv]`.
+- Swedish UI was built and then reverted at the owner's request — the app
+  stays in English; only the search parser speaks Swedish too.
 
 ### Next candidates
 - Live TV "För dig" order still full-sorts per page (needs schema bump).
@@ -90,5 +90,5 @@ reviewed where the simulator can show it; not yet tried on a real TV.
 
 Allvarligast: sökningen hittar inte kanaler, söker inte i TV-tablån, förstår
 inte svenska och visar inget förrän man tryckt Klar. Kanaler kräver två klick
-för att börja titta. Appen är på engelska trots svensk marknad. Allt detta
-åtgärdas i omgång 1–4; navigering, spelare och hemskärm är redan rättade.
+för att börja titta. Appen förblir på engelska (beslut). Övrigt
+åtgärdat i omgång 1–3; navigering, spelare och hemskärm är redan rättade.

@@ -15,12 +15,12 @@ struct SearchView: View {
     /// Shown on the empty screen — they double as a hint of what Search
     /// understands. Tapping one runs it.
     private let examples = [
-        "Skräck med svenska undertexter",
-        "Komedi under 2 timmar",
-        "Engelska serier efter 2018",
+        "Something scary with Swedish subtitles",
+        "A comedy under 2 hours",
+        "English series after 2018",
         "Something like Game of Thrones",
-        "Barnfilmer",
-        "Dokumentärer",
+        "Kids' movies",
+        "Documentaries",
     ]
 
     var body: some View {
