@@ -69,8 +69,12 @@ struct SidebarShell: View {
     private static let lastSectionKey = "sidebar.lastSection.v1"
 
     init() {
-        let restored = UserDefaults.standard.string(forKey: Self.lastSectionKey)
-            .flatMap(Section.init(rawValue:)) ?? .home
+        // Settings is a place you visit, not one you live in — relaunching into
+        // it feels like a glitch, so it falls back to Home.
+        let saved = UserDefaults.standard.string(forKey: Self.lastSectionKey)
+            .flatMap(Section.init(rawValue:))
+        let restored: Section
+        if let saved, saved != .settings { restored = saved } else { restored = .home }
         _selection = State(initialValue: restored)
         _visited = State(initialValue: [restored])
     }

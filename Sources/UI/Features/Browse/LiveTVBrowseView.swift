@@ -32,6 +32,9 @@ public final class LiveTVBrowseViewModel {
     private let pageSize = 90
     private var page = 0
     private var reloadTask: Task<Void, Never>?
+    /// Set when a catalog change arrived while Favorites mode skipped the
+    /// category query; the next normal reload refetches the chips.
+    private var categoriesStale = false
 
     public init(repository: any CatalogQuerying, favorites: FavoritesStore) {
         self.repository = repository
@@ -50,7 +53,15 @@ public final class LiveTVBrowseViewModel {
         reloadTask = Task { [weak self] in
             try? await Task.sleep(for: .milliseconds(280))
             guard !Task.isCancelled, let self else { return }
-            self.categories = await self.repository.allChannelCategories()
+            if self.favoritesOnly {
+                // Chips are hidden in Favorites mode — defer the category query
+                // to the next normal reload instead of running it on every
+                // import revision.
+                self.categoriesStale = true
+            } else {
+                self.categories = await self.repository.allChannelCategories()
+                self.categoriesStale = false
+            }
             await self.reload()
         }
     }
@@ -120,8 +131,9 @@ public final class LiveTVBrowseViewModel {
         anchors = sort == .nameAsc ? await repository.channelTitleAnchors(in: category) : []
         guard !Task.isCancelled, category == selectedCategory, sort == self.sort else { return }
 
-        if categories.count <= 1 {
+        if categories.count <= 1 || categoriesStale {
             categories = await repository.allChannelCategories()
+            categoriesStale = false
         }
     }
 
@@ -234,7 +246,7 @@ struct LiveTVBrowseView: View {
                     } else if model.rows.isEmpty && !model.isLoading {
                         EmptyStateView(
                             icon: model.favoritesOnly ? "star" : "tv",
-                            title: model.favoritesOnly ? "No favourite channels" : "No channels",
+                            title: model.favoritesOnly ? "No favorite channels" : "No channels",
                             message: model.favoritesOnly
                                 ? "Heart a channel from its detail screen to see it here."
                                 : "No channels in this category."
@@ -286,7 +298,7 @@ struct LiveTVBrowseView: View {
                 Text("\(model.total)").font(.dsCardTitle).foregroundStyle(Palette.textTertiary)
                 Spacer()
                 HStack(spacing: Metrics.space1) {
-                    FilterChip(label: "★ Favourites", isSelected: model.favoritesOnly) {
+                    FilterChip(label: "★ Favorites", isSelected: model.favoritesOnly) {
                         model.favoritesOnly.toggle()
                     }
                     ForEach(ChannelSort.allCases, id: \.self) { option in

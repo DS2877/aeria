@@ -176,7 +176,7 @@ public final class HomeViewModel {
         // the containers, so no extra lookup pass beyond the anchors themselves.
         var becauseMovies: [Movie] = []
         var becauseSeries: [Series] = []
-        for anchor in await watchedAnchors(resume: resume, limit: 2) {
+        for anchor in await watchedAnchors(resume: resume, limit: Self.becauseYouWatchedAnchorLimit) {
             becauseMovies += await repository.similarMovies(to: anchor.id, genres: anchor.genres, limit: 20)
             becauseSeries += await repository.similarSeries(to: anchor.id, genres: anchor.genres, limit: 12)
         }
@@ -220,6 +220,11 @@ public final class HomeViewModel {
     }
 
     private var lastSnapshotSave = Date.distantPast
+
+    /// How many recently watched titles get their own "Because You Watched"
+    /// row. Shared by the actor-side prefetch (`watchedAnchors`) and the pure
+    /// row builder (`mostRecentWatchedAnchors`) so the two can't drift apart.
+    nonisolated static let becauseYouWatchedAnchorLimit = 2
     private static let snapshotInterval: TimeInterval = 20
 
     /// Up to `limit` distinct recently played titles that still carry genre
@@ -323,7 +328,8 @@ public final class HomeViewModel {
         let becauseRows: [HomeRow] = {
             var built: [HomeRow] = []
             var excluded: Set<CatalogID> = []
-            for anchor in mostRecentWatchedAnchors(progress: progress, catalog: catalog, limit: 2) {
+            for anchor in mostRecentWatchedAnchors(progress: progress, catalog: catalog,
+                                                       limit: Self.becauseYouWatchedAnchorLimit) {
                 let cards = similarTitles(toGenres: anchor.genres, excluding: anchor.id,
                                           movies: moviesByRecency, series: seriesByRecency, limit: 20)
                     .filter { !excluded.contains($0.id) }
