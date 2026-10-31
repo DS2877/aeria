@@ -1,0 +1,70 @@
+# Builds the tvOS app and runs the unit tests on a GitHub-hosted Mac, so changes
+# get compiled without anyone opening Xcode. Mirrors the Xcode Cloud setup:
+# ci_scripts/ci_post_clone.sh generates the project and seeds the SPM pins.
+name: Build & Test
+
+on:
+  push:
+    branches: ["claude/**", "import-progress-checklist"]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: macos-26
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select newest Xcode
+        run: |
+          XCODE=$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -1)
+          echo "Using $XCODE"
+          sudo xcode-select -s "$XCODE/Contents/Developer"
+          xcodebuild -version
+
+      - name: Generate project (same script as Xcode Cloud)
+        run: sh ci_scripts/ci_post_clone.sh
+
+      - name: Pick an Apple TV simulator
+        id: sim
+        run: |
+          xcrun simctl list devices available
+          UDID=$(xcrun simctl list devices available | grep -E "Apple TV" | grep -v "Apple TV 4K \(1st" | tail -1 | grep -oE '[0-9A-F-]{36}')
+          if [ -z "$UDID" ]; then echo "No Apple TV simulator on this runner" >&2; exit 1; fi
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+
+      - name: Build and test
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project Aeria.xcodeproj \
+            -scheme Aeria \
+            -destination "id=${{ steps.sim.outputs.udid }}" \
+            -resultBundlePath TestResults.xcresult \
+            CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tee xcodebuild.log | grep -E "error:|warning: .*(will be an error|Swift 6)|Test Case .* failed|\*\* (BUILD|TEST) |Executed [0-9]+ test" || true
+          # Re-derive the real exit status from the log (grep above swallows it).
+          grep -q "\*\* TEST SUCCEEDED \*\*" xcodebuild.log
+
+      - name: Summarise failures
+        if: failure()
+        run: |
+          echo "### Compile errors" >> "$GITHUB_STEP_SUMMARY"
+          grep -E "error:" xcodebuild.log | sort -u | head -50 >> "$GITHUB_STEP_SUMMARY" || true
+          echo "### Failing tests" >> "$GITHUB_STEP_SUMMARY"
+          grep -E "Test Case .* failed|XCTAssert" xcodebuild.log | head -50 >> "$GITHUB_STEP_SUMMARY" || true
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcodebuild-logs
+          path: |
+            xcodebuild.log
+            TestResults.xcresult
+          if-no-files-found: ignore
