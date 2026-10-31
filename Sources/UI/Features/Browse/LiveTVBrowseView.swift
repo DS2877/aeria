@@ -9,6 +9,8 @@ public struct LiveChannelRow: Identifiable, Sendable {
     public let nowTitle: String?
     public let nowProgress: Double?
     public let number: Int
+    /// The programme after the current one, for the card's "Next:" line.
+    public var nextTitle: String? = nil
 }
 
 @MainActor
@@ -116,7 +118,8 @@ public final class LiveTVBrowseViewModel {
             return LiveChannelRow(
                 id: channel.id, name: channel.name, logoURL: channel.logoURL,
                 quality: channel.quality, nowTitle: event?.title,
-                nowProgress: event?.progress(at: now), number: channel.sortIndex
+                nowProgress: event?.progress(at: now), number: channel.sortIndex,
+                nextTitle: channel.epgID.flatMap { id in epg[id]?.first { $0.start >= now }?.title }
             )
         }
         total = rows.count
@@ -180,7 +183,8 @@ public final class LiveTVBrowseViewModel {
             return LiveChannelRow(
                 id: channel.id, name: channel.name, logoURL: channel.logoURL,
                 quality: channel.quality, nowTitle: event?.title,
-                nowProgress: event?.progress(at: now), number: channel.sortIndex
+                nowProgress: event?.progress(at: now), number: channel.sortIndex,
+                nextTitle: channel.epgID.flatMap { id in epg[id]?.first { $0.start >= now }?.title }
             )
         }
         guard category == selectedCategory else { return }
@@ -263,6 +267,7 @@ struct LiveTVBrowseView: View {
                                     name: row.name,
                                     logoURL: row.logoURL,
                                     nowTitle: row.nowTitle,
+                                    nextTitle: row.nextTitle,
                                     quality: row.quality,
                                     nowProgress: row.nowProgress,
                                     channelNumber: row.number,

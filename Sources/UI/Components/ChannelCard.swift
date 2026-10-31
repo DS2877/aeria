@@ -105,6 +105,12 @@ public struct ChannelCard: View {
                     .foregroundStyle(Palette.textSecondary)
                     .lineLimit(1)
             }
+            if let nextTitle, !nextTitle.isEmpty {
+                Text("Next: \(nextTitle)")
+                    .font(.dsTag)
+                    .foregroundStyle(Palette.textTertiary)
+                    .lineLimit(1)
+            }
         } else {
             Text("Live")
                 .font(.dsCaption)
