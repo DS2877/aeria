@@ -110,6 +110,32 @@ final class HomeScreenshotTests: XCTestCase {
         noteFocus(app, "25 after clicking Guide in the rail")
     }
 
+    /// Clicking each sidebar item moves focus into that section; Menu on the
+    /// section's root brings focus back to the sidebar on that same item.
+    func testSidebarClickEntersEverySection() {
+        let app = XCUIApplication()
+        app.launchArguments += ["-AeriaScreenshots"]
+        app.launch()
+        sleep(12)
+
+        let remote = XCUIRemote.shared
+        remote.press(.left)          // into the rail, on Home
+        sleep(2)
+        remote.press(.down)          // Search (skipped — the keyboard owns focus)
+        sleep(2)
+        for name in ["live-tv", "guide", "movies", "series", "history"] {
+            remote.press(.down)
+            sleep(3)
+            remote.press(.select)
+            sleep(2)
+            snap("30-click-\(name)")
+            noteFocus(app, "click \(name)")
+            remote.press(.menu)      // back to the rail, same item
+            sleep(2)
+            noteFocus(app, "menu after \(name)")
+        }
+    }
+
     /// Menu on a detail screen goes back one step, not to the sidebar.
     func testMenuOnDetailGoesBackOneStep() {
         let app = XCUIApplication()

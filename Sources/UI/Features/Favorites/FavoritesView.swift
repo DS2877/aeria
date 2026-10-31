@@ -54,6 +54,7 @@ struct FavoritesView: View {
                                             ForEach(section.items) { item in
                                                 ChannelCard(name: item.title, logoURL: item.art,
                                                             nowTitle: item.subtitle) { watching = item.id }
+                                                    .sectionEntryFocus(Self.isFirst(item, in: section, of: sections))
                                                     .contextMenu {
                                                         ChannelContextMenu(channelID: item.id) {
                                                             path.append(item.route)
@@ -68,6 +69,7 @@ struct FavoritesView: View {
                                                 PosterCard(title: item.title, subtitle: item.subtitle,
                                                            artworkURL: item.art, ref: item.ref,
                                                            action: { path.append(item.route) })
+                                                .sectionEntryFocus(Self.isFirst(item, in: section, of: sections))
                                             }
                                         }
                                         .padding(.horizontal, Metrics.screenMargin)
@@ -88,6 +90,11 @@ struct FavoritesView: View {
         // unheart something (including on a detail screen) and stays put —
         // scroll and focus intact — when you simply come back from one.
         .task(id: env.favorites.revision) { await reload() }
+    }
+
+    /// The very first card on the screen — where a sidebar click lands.
+    private static func isFirst(_ item: FavItem, in section: FavSection, of all: [FavSection]) -> Bool {
+        all.first?.id == section.id && section.items.first?.id == item.id
     }
 
     private static func isChannel(_ route: AppRoute) -> Bool {

@@ -152,6 +152,7 @@ struct HeroBanner: View {
                     }
                     .buttonStyle(PrimaryButtonStyle())
                     .focused($focusedControl, equals: .play)
+                    .sectionEntryFocus()
                     .accessibilityLabel("Play \(hero.title)")
 
                     Button { onSelect(hero) } label: {
@@ -166,6 +167,7 @@ struct HeroBanner: View {
                     }
                     .buttonStyle(PrimaryButtonStyle())
                     .focused($focusedControl, equals: .info)
+                    .sectionEntryFocus(hero.kind != .movie)
                     .accessibilityLabel("More Info, \(hero.title)")
                 }
 

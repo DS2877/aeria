@@ -100,6 +100,7 @@ struct VODBrowseView: View {
                                     isNew: card.isNew,
                                     action: { path.append(card.route) }
                                 )
+                                .sectionEntryFocus(card.id == model.cards.first?.id)
                                 .id(card.id)
                                 .task { await model.loadMoreIfNeeded(currentItem: card) }
                             }

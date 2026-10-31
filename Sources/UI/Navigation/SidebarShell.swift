@@ -123,6 +123,7 @@ struct SidebarShell: View {
                 // one step first. (Attached here, around the whole stack, it
                 // swallowed Menu on detail screens too.) On Home, Menu is left
                 // alone so it backgrounds the app, per the HIG.
+                .environment(\.contentFocusScope, contentScope)
                 .environment(\.returnToSidebar, selection != .home ? {
                     withAnimation(Self.railAnimation) { focusedItem = selection }
                 } : nil)
@@ -318,11 +319,53 @@ private struct MenuReturnsToSidebar: ViewModifier {
 
     @ViewBuilder
     func body(content: Content) -> some View {
+        // The whole section is one focus region, so → from the sidebar always
+        // finds it — tvOS otherwise only moves focus to something level with
+        // the sidebar item (the Guide couldn't be entered).
         if let action = first ?? returnToSidebar {
-            content.onExitCommand(perform: action)
+            content.focusSection().onExitCommand(perform: action)
+        } else {
+            content.focusSection()
+        }
+    }
+}
+
+/// The content area's focus scope, for `sectionEntryFocus`.
+private struct ContentFocusScopeKey: EnvironmentKey {
+    static let defaultValue: Namespace.ID? = nil
+}
+
+extension EnvironmentValues {
+    var contentFocusScope: Namespace.ID? {
+        get { self[ContentFocusScopeKey.self] }
+        set { self[ContentFocusScopeKey.self] = newValue }
+    }
+}
+
+/// Marks the element focus should land on when the viewer clicks this
+/// section's item in the sidebar (the shell calls `resetFocus` on the content
+/// scope). Only the visible section claims it — hidden, kept-alive sections
+/// are disabled.
+private struct SectionEntryFocus: ViewModifier {
+    let isEntry: Bool
+    @Environment(\.contentFocusScope) private var scope
+    @Environment(\.isEnabled) private var isEnabled
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if let scope {
+            content.prefersDefaultFocus(isEntry && isEnabled, in: scope)
         } else {
             content
         }
+    }
+}
+
+extension View {
+    /// Where focus lands when this section is entered by clicking it in the
+    /// sidebar. Pass `true` on exactly one element per section.
+    func sectionEntryFocus(_ isEntry: Bool = true) -> some View {
+        modifier(SectionEntryFocus(isEntry: isEntry))
     }
 }
 

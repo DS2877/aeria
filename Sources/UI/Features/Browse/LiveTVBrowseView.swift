@@ -271,6 +271,7 @@ struct LiveTVBrowseView: View {
                                 .contextMenu {
                                     ChannelContextMenu(channelID: row.id) { path.append(.channel(row.id)) }
                                 }
+                                .sectionEntryFocus(row.id == model.rows.first?.id)
                                 .id(row.id)
                                 .task { await model.loadMoreIfNeeded(currentItem: row) }
                             }

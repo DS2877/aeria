@@ -54,6 +54,7 @@ struct HistoryView: View {
                                                 onResume: { Task { await resume(row) } },
                                                 onRemove: { remove(row) }
                                             )
+                                            .sectionEntryFocus(row.id == groups.first?.rows.first?.id)
                                         }
                                     }
                                     .padding(.horizontal, Metrics.screenMargin)

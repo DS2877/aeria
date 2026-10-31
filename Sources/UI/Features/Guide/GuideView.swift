@@ -210,7 +210,8 @@ struct GuideView: View {
                     LazyVStack(alignment: .leading, spacing: Metrics.space3) {
                         Color.clear.frame(height: Metrics.space3)
                         ForEach(model.rows) { row in
-                            channelRow(row, now: model.now)
+                            channelRow(row, now: model.now, entryID: row.id == model.rows.first?.id
+                                       ? entryFocusID(model) : nil)
                         }
                         if model.truncated {
                             Text("Showing the first \(model.rows.count) channels with guide data. Use Live TV to browse the rest.")
@@ -325,7 +326,7 @@ struct GuideView: View {
         .animation(.easeInOut(duration: 0.25), value: previewItem?.id)
     }
 
-    private func channelRow(_ row: GuideChannelRow, now: Date) -> some View {
+    private func channelRow(_ row: GuideChannelRow, now: Date, entryID: String?) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: Metrics.space1) {
                 Text(row.name)
@@ -352,6 +353,7 @@ struct GuideView: View {
                         }
                         .buttonStyle(.card)
                         .focused($focusedEvent, equals: event.id)
+                        .sectionEntryFocus(event.id == entryID)
                         .accessibilityLabel("\(row.name), \(event.start.formatted(date: .omitted, time: .shortened)), \(event.title)\(event.isLive(at: now) ? ", on now" : "")")
                     }
                 }
