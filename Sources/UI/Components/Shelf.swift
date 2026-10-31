@@ -57,7 +57,7 @@ public struct Shelf<Item: Identifiable, Card: View>: View {
                 }
             }
             .buttonStyle(SeeAllLinkStyle())
-            .accessibilityLabel("Visa alla: \(title)")
+            .accessibilityLabel("See all \(title)")
         } else {
             SectionHeader(title, subtitle: subtitle)
         }

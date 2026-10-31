@@ -18,7 +18,7 @@ struct SearchView: View {
         "Skräck med svenska undertexter",
         "Komedi under 2 timmar",
         "Engelska serier efter 2018",
-        "Något som Game of Thrones",
+        "Something like Game of Thrones",
         "Barnfilmer",
         "Dokumentärer",
     ]
@@ -29,7 +29,7 @@ struct SearchView: View {
                 if let model {
                     content(model)
                         .searchable(text: Binding(get: { model.query }, set: { model.query = $0 }),
-                                    prompt: "Titlar, kanaler, program — eller beskriv vad du vill se")
+                                    prompt: "Titles, channels, programmes — or describe it")
                         .onSubmit(of: .search) {
                             Task { await model.search(vocabulary: env.vocabulary) }
                         }
@@ -74,8 +74,8 @@ struct SearchView: View {
                         interpretation(model)
                         EmptyStateView(
                             icon: "magnifyingglass",
-                            title: "Inga träffar",
-                            message: "Inget i ditt bibliotek eller dagens TV-tablå matchar \u{201D}\(model.interpretedFrom)\u{201D}. Prova färre ord, eller ta bort ett filter ovan."
+                            title: "Nothing matched",
+                            message: "Nothing in your library or today's TV guide matches \u{201C}\(model.interpretedFrom)\u{201D}. Try fewer words, or remove a filter above."
                         )
                         .frame(maxWidth: .infinity, minHeight: 320)
                     }
@@ -95,7 +95,7 @@ struct SearchView: View {
     private func interpretation(_ model: SearchViewModel) -> some View {
         if !model.chips.isEmpty {
             VStack(alignment: .leading, spacing: 8) {
-                Text("Tolkat som").font(.dsCaption).foregroundStyle(Palette.textTertiary)
+                Text("Understood as").font(.dsCaption).foregroundStyle(Palette.textTertiary)
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: Metrics.space1) {
                         ForEach(model.chips) { chip in
@@ -116,7 +116,7 @@ struct SearchView: View {
     @ViewBuilder
     private func resultRows(_ model: SearchViewModel) -> some View {
         if !model.channels.isEmpty {
-            Shelf(title: "Kanaler", items: model.channels) { channel in
+            Shelf(title: "Channels", items: model.channels) { channel in
                 let now = model.channelNow[channel.id]
                 ChannelCard(name: channel.name, logoURL: channel.logoURL,
                             nowTitle: now?.title, quality: channel.quality,
@@ -131,7 +131,7 @@ struct SearchView: View {
             }
         }
         if !model.programmes.isEmpty {
-            Shelf(title: "På TV", subtitle: "Idag i tablån", items: model.programmes) { hit in
+            Shelf(title: "On TV", subtitle: "Today in the guide", items: model.programmes) { hit in
                 // On now → watch it; later → the channel's schedule.
                 ProgrammeCard(hit: hit) {
                     if hit.event.isLive(at: .now) {
@@ -144,12 +144,12 @@ struct SearchView: View {
             }
         }
         if !model.movies.isEmpty {
-            Shelf(title: "Filmer", items: model.movies) { movie in
+            Shelf(title: "Movies", items: model.movies) { movie in
                 movieCard(movie, model)
             }
         }
         if !model.series.isEmpty {
-            Shelf(title: "Serier", items: model.series) { show in
+            Shelf(title: "Series", items: model.series) { show in
                 seriesCard(show, model)
             }
         }
@@ -158,9 +158,9 @@ struct SearchView: View {
     @ViewBuilder
     private func idleState(_ model: SearchViewModel) -> some View {
         if !model.recentQueries.isEmpty {
-            chipRow(title: "Senaste sökningar", items: model.recentQueries, icon: "clock.arrow.circlepath",
+            chipRow(title: "Recent searches", items: model.recentQueries, icon: "clock.arrow.circlepath",
                     trailing: AnyView(
-                        Button("Rensa") { model.clearRecents() }
+                        Button("Clear") { model.clearRecents() }
                             .buttonStyle(.bordered)
                             .controlSize(.small)
                     )) { text in
@@ -168,7 +168,7 @@ struct SearchView: View {
             }
         }
         if !model.trending.isEmpty {
-            Shelf(title: "Populärt i ditt bibliotek", items: model.trending) { result in
+            Shelf(title: "Popular in your library", items: model.trending) { result in
                 switch result.item {
                 case .movie(let m):   movieCard(m, model)
                 case .series(let s):  seriesCard(s, model)
@@ -176,7 +176,7 @@ struct SearchView: View {
                 }
             }
         }
-        chipRow(title: "Prova att söka på", items: examples, icon: "sparkle", trailing: nil) { example in
+        chipRow(title: "Try searching for", items: examples, icon: "sparkle", trailing: nil) { example in
             model.query = example
             Task { await model.search(vocabulary: env.vocabulary) }
         }
@@ -270,12 +270,12 @@ private struct ProgrammeCard: View {
             .frame(width: 300, height: 170, alignment: .leading)
         }
         .buttonStyle(.card)
-        .accessibilityLabel("\(hit.event.title), \(hit.channel.name), \(timeLabel(now: now))\(live ? ", sänds nu" : "")")
+        .accessibilityLabel("\(hit.event.title), \(hit.channel.name), \(timeLabel(now: now))\(live ? ", on now" : "")")
     }
 
     private func timeLabel(now: Date) -> String {
         let time = hit.event.start.formatted(date: .omitted, time: .shortened)
         if Calendar.current.isDate(hit.event.start, inSameDayAs: now) { return time }
-        return "I morgon \(time)"
+        return "Tomorrow \(time)"
     }
 }

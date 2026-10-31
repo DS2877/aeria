@@ -194,8 +194,8 @@ struct GuideView: View {
         } else if model.rows.isEmpty {
             EmptyStateView(
                 icon: "rectangle.grid.1x2",
-                title: "Ingen TV-guide",
-                message: "Din leverantör skickade ingen tablå, eller så har den inte matchats mot dina kanaler än."
+                title: "No TV guide",
+                message: "Your provider didn't include EPG data, or it hasn't matched your channels yet."
             )
         } else {
             VStack(spacing: 0) {
@@ -214,7 +214,7 @@ struct GuideView: View {
                             channelRow(row, now: model.now)
                         }
                         if model.truncated {
-                            Text("Visar de första \(model.rows.count) kanalerna med tablå. Använd Live-TV för att se resten.")
+                            Text("Showing the first \(model.rows.count) channels with guide data. Use Live TV to browse the rest.")
                                 .font(.dsCaption).foregroundStyle(Palette.textTertiary)
                                 .padding(.horizontal, Metrics.screenMargin)
                                 .padding(.top, Metrics.space2)
@@ -231,7 +231,7 @@ struct GuideView: View {
         HStack(alignment: .top, spacing: Metrics.space5) {
             VStack(alignment: .leading, spacing: Metrics.space1) {
                 HStack(alignment: .firstTextBaseline) {
-                    Text("TV-guide").font(.dsSectionHeader).accessibilityAddTraits(.isHeader)
+                    Text("TV Guide").font(.dsSectionHeader).accessibilityAddTraits(.isHeader)
                     Text(model.now.formatted(date: .abbreviated, time: .shortened))
                         .font(.dsCaption).foregroundStyle(Palette.textTertiary)
                 }
@@ -259,7 +259,7 @@ struct GuideView: View {
                             .lineLimit(3)
                     }
                 } else {
-                    Text("Välj ett program för att förhandsvisa kanalen här. Välj det igen för helskärm.")
+                    Text("Select a programme to preview the channel here. Select it again to watch full screen.")
                         .font(.dsCaption)
                         .foregroundStyle(Palette.textTertiary)
                         .padding(.top, Metrics.space2)
@@ -297,7 +297,7 @@ struct GuideView: View {
                 HStack(spacing: 8) {
                     LiveBadge()
                     Text(row.name).font(.dsTag).lineLimit(1)
-                    Text("· Välj igen för helskärm")
+                    Text("· Select again for full screen")
                         .font(.dsTag)
                         .foregroundStyle(.white.opacity(0.7))
                         .lineLimit(1)
@@ -322,7 +322,7 @@ struct GuideView: View {
                     Image(systemName: "speaker.wave.2.fill")
                         .font(.system(size: 14))
                         .foregroundStyle(Palette.accent)
-                        .accessibilityLabel("Förhandsvisas")
+                        .accessibilityLabel("Previewing")
                 }
             }
             .padding(.horizontal, Metrics.screenMargin)
@@ -337,7 +337,7 @@ struct GuideView: View {
                         }
                         .buttonStyle(.card)
                         .focused($focusedEvent, equals: event.id)
-                        .accessibilityLabel("\(row.name), \(event.start.formatted(date: .omitted, time: .shortened)), \(event.title)\(event.isLive(at: now) ? ", sänds nu" : "")")
+                        .accessibilityLabel("\(row.name), \(event.start.formatted(date: .omitted, time: .shortened)), \(event.title)\(event.isLive(at: now) ? ", on now" : "")")
                     }
                 }
                 .padding(.horizontal, Metrics.screenMargin)

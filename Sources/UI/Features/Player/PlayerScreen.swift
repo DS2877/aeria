@@ -122,7 +122,7 @@ struct PlayerScreen: View {
                             onRetry: canRetry(error) ? { model.retry() } : nil,
                             onEditProvider: nil
                         )
-                        Button("Stäng", action: { dismiss() })
+                        Button("Close", action: { dismiss() })
                             .buttonStyle(.borderedProminent)
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -263,7 +263,7 @@ private struct UpNextCard: View {
             .frame(width: 66, height: 66)
 
             VStack(alignment: .leading, spacing: 4) {
-                Text("NÄSTA AVSNITT")
+                Text("UP NEXT")
                     .font(.dsTag)
                     .tracking(Metrics.eyebrowTracking)
                     .foregroundStyle(.white.opacity(0.6))
@@ -283,7 +283,7 @@ private struct UpNextCard: View {
         .padding(Metrics.space3)
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Nästa avsnitt: \(item.title), \(item.subtitle ?? ""), börjar om \(seconds) sekunder")
+        .accessibilityLabel("Up next: \(item.title), \(item.subtitle ?? ""), starts in \(seconds) seconds")
     }
 }
 
@@ -310,7 +310,7 @@ private struct PlaybackLoadingOverlay: View {
                         .foregroundStyle(.white.opacity(0.65))
                         .lineLimit(1)
                 }
-                Text(isStalling ? "Buffrar…" : "Startar…")
+                Text(isStalling ? "Buffering…" : "Starting…")
                     .font(.dsTag)
                     .foregroundStyle(.white.opacity(0.45))
                     .padding(.top, 2)
@@ -326,7 +326,7 @@ private struct PlaybackLoadingOverlay: View {
                 .fill(.black.opacity(isStalling ? 0.45 : 0))
         )
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(isStalling ? "Buffrar \(title)" : "Laddar \(title)")
+        .accessibilityLabel(isStalling ? "Buffering \(title)" : "Loading \(title)")
     }
 }
 
@@ -382,21 +382,21 @@ struct SystemPlayerView: UIViewControllerRepresentable {
 
         if channelActions != nil {
             items += [
-                UIAction(title: "Föregående kanal",
+                UIAction(title: "Previous Channel",
                          image: UIImage(systemName: "backward.end.fill")) { _ in coordinator.actions?.previous() },
-                UIAction(title: "Kanaler",
+                UIAction(title: "Channels",
                          image: UIImage(systemName: "list.bullet")) { _ in coordinator.actions?.openList() },
-                UIAction(title: "Nästa kanal",
+                UIAction(title: "Next Channel",
                          image: UIImage(systemName: "forward.end.fill")) { _ in coordinator.actions?.next() },
             ]
         }
 
         if onSleep != nil {
             var options: [UIMenuElement] = [15, 30, 45, 60].map { minutes -> UIMenuElement in
-                UIAction(title: "\(minutes) minuter") { _ in coordinator.onSleep?(minutes) }
+                UIAction(title: "\(minutes) minutes") { _ in coordinator.onSleep?(minutes) }
             }
-            options.append(UIAction(title: "Av") { _ in coordinator.onSleep?(nil) })
-            items.append(UIMenu(title: "Insomningstimer",
+            options.append(UIAction(title: "Off") { _ in coordinator.onSleep?(nil) })
+            items.append(UIMenu(title: "Sleep Timer",
                                 image: UIImage(systemName: "moon.zzz"),
                                 children: options))
         }
@@ -407,7 +407,7 @@ struct SystemPlayerView: UIViewControllerRepresentable {
 
         if let info = infoChannels {
             let host = UIHostingController(rootView: Self.channelStrip(info))
-            host.title = "Kanaler"
+            host.title = "Channels"
             host.preferredContentSize = CGSize(width: 1920, height: 240)
             controller.customInfoViewControllers = [host]
             coordinator.channelHost = host

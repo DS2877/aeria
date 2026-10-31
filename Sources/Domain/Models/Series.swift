@@ -129,6 +129,6 @@ public extension Series {
             return [year.map(String.init), genres.first?.displayName]
                 .compactMap { $0 }.joined(separator: " · ")
         }
-        return "\(seasons.count) \(seasons.count == 1 ? "säsong" : "säsonger")"
+        return "\(seasons.count) season\(seasons.count == 1 ? "" : "s")"
     }
 }

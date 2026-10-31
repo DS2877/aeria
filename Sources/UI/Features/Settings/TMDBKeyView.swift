@@ -13,13 +13,13 @@ struct TMDBKeyView: View {
             Palette.canvas.ignoresSafeArea()
             VStack(alignment: .leading, spacing: Metrics.space4) {
                 VStack(alignment: .leading, spacing: Metrics.space1) {
-                    Text("Anslut The Movie Database").font(.dsTitle)
-                    Text("Skapa ett gratis konto på themoviedb.org → Settings → API. Klistra in antingen v3-\u{201D}API Key\u{201D} eller v4-\u{201D}API Read Access Token\u{201D} — båda fungerar. Sparas bara på den här Apple TV:n; varje uppslag skickar bara titel och år.")
+                    Text("Connect The Movie Database").font(.dsTitle)
+                    Text("Create a free account at themoviedb.org → Settings → API. Paste either the v3 \u{201C}API Key\u{201D} or the v4 \u{201C}API Read Access Token\u{201D} — both work. Stored only on this Apple TV; each lookup sends just a title and year.")
                         .font(.dsBody).foregroundStyle(Palette.textSecondary)
                         .frame(maxWidth: 900, alignment: .leading)
                 }
 
-                SecureField("API-nyckel", text: $key)
+                SecureField("API key", text: $key)
                     .textFieldStyle(.plain)
                     .font(.dsBody)
                     .padding(Metrics.space2)
@@ -29,8 +29,8 @@ struct TMDBKeyView: View {
                     .frame(maxWidth: 820)
 
                 HStack(spacing: Metrics.space2) {
-                    Button("Avbryt") { dismiss() }.buttonStyle(SecondaryButtonStyle())
-                    Button("Spara") {
+                    Button("Cancel") { dismiss() }.buttonStyle(SecondaryButtonStyle())
+                    Button("Save") {
                         Task { await env.setTMDBKey(key); dismiss() }
                     }
                     .buttonStyle(PrimaryButtonStyle())
@@ -39,7 +39,7 @@ struct TMDBKeyView: View {
                     if env.hasTMDBKey {
                         Button(role: .destructive) {
                             Task { await env.setTMDBKey(""); dismiss() }
-                        } label: { Label("Ta bort nyckel", systemImage: "trash") }
+                        } label: { Label("Remove key", systemImage: "trash") }
                         .buttonStyle(SecondaryButtonStyle())
                     }
                 }

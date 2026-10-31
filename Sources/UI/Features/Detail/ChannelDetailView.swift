@@ -124,7 +124,7 @@ struct ChannelDetailView: View {
             Button {
                 Task { playback = await env.playback(forChannel: channel.id) }
             } label: {
-                Label("Titta live", systemImage: "play.fill")
+                Label("Watch Live", systemImage: "play.fill")
             }
             .buttonStyle(PrimaryButtonStyle())
 
@@ -135,14 +135,14 @@ struct ChannelDetailView: View {
                     .symbolEffect(.bounce, value: env.favorites.isFavorite(channel.id))
             }
             .buttonStyle(SecondaryButtonStyle())
-            .accessibilityLabel(env.favorites.isFavorite(channel.id) ? "Ta bort från Favoriter" : "Lägg till i Favoriter")
+            .accessibilityLabel(env.favorites.isFavorite(channel.id) ? "Remove from Favorites" : "Add to Favorites")
         }
     }
 
     @ViewBuilder
     private func onNow(_ event: EPGEvent) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Sänds nu").font(.dsCaption).foregroundStyle(Palette.textTertiary)
+            Text("On now").font(.dsCaption).foregroundStyle(Palette.textTertiary)
             Text(event.title).font(.dsCardTitle).foregroundStyle(Palette.textPrimary)
             if let desc = event.description, !desc.isEmpty {
                 Text(desc).font(.dsCaption).foregroundStyle(Palette.textSecondary).lineLimit(3)
@@ -159,7 +159,7 @@ struct ChannelDetailView: View {
         let items = upcoming
         if !items.isEmpty {
             VStack(alignment: .leading, spacing: Metrics.space2) {
-                Text("Senare idag").font(.dsSectionHeader).foregroundStyle(Palette.textPrimary)
+                Text("Later today").font(.dsSectionHeader).foregroundStyle(Palette.textPrimary)
                 ForEach(items) { event in
                     HStack(alignment: .top, spacing: Metrics.space3) {
                         Text(timeLabel(event.start))

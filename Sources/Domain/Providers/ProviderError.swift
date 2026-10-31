@@ -19,17 +19,17 @@ public enum ProviderError: Error, Equatable, Sendable {
     /// Short title for an error card.
     public var title: String {
         switch self {
-        case .offline:               return "Du är offline"
-        case .cannotReachProvider:   return "Kan inte nå din leverantör"
-        case .authenticationFailed:  return "Inloggningen misslyckades"
-        case .emptyLibrary:          return "Din leverantör skickade inget"
-        case .badResponse:           return "Din leverantör svarade oväntat"
-        case .playlistMalformed:     return "Spellistan kunde inte läsas"
-        case .streamUnavailable:     return "Kanalen är inte tillgänglig just nu"
-        case .streamNotSupported:    return "Apple TV kan inte spela den här strömmen"
-        case .timedOut:              return "Din leverantör svarade inte i tid"
-        case .cancelled:             return "Avbrutet"
-        case .unknown:               return "Något gick fel"
+        case .offline:               return "You're offline"
+        case .cannotReachProvider:   return "Can't reach your provider"
+        case .authenticationFailed:  return "Sign-in failed"
+        case .emptyLibrary:          return "Your provider returned nothing"
+        case .badResponse:           return "Your provider sent something unexpected"
+        case .playlistMalformed:     return "This playlist couldn't be read"
+        case .streamUnavailable:     return "This channel isn't available right now"
+        case .streamNotSupported:    return "Apple TV can't play this stream"
+        case .timedOut:              return "Your provider took too long to respond"
+        case .cancelled:             return "Cancelled"
+        case .unknown:               return "Something went wrong"
         }
     }
 
@@ -37,27 +37,27 @@ public enum ProviderError: Error, Equatable, Sendable {
     public var message: String {
         switch self {
         case .offline:
-            return "Kontrollera internetanslutningen och försök igen."
+            return "Check your internet connection and try again."
         case .cannotReachProvider:
-            return "Vi fick ingen kontakt. Leverantören kan ligga nere, eller så är adressen fel."
+            return "We couldn't connect. Your provider may be down, or the address may be wrong."
         case .authenticationFailed:
-            return "Användarnamnet eller lösenordet godtogs inte. Kontrollera dina leverantörsuppgifter."
+            return "Your username or password wasn't accepted. Check your provider details."
         case .emptyLibrary:
-            return "Anslutningen fungerade, men leverantören skickade inga kanaler, filmer eller serier. Oftast betyder det att abonnemanget inte är aktivt, eller att uppgifterna hör till en annan tjänst."
+            return "We connected successfully, but your provider sent no channels, movies or series. This usually means the subscription isn't active, or these details are for a different service."
         case .badResponse:
-            return "Vi nådde leverantören men kunde inte tolka svaret."
+            return "We reached your provider but couldn't understand the response."
         case .playlistMalformed(let reason):
-            return "Spellistan ser inte giltig ut. (\(reason))"
+            return "The playlist file doesn't look valid. (\(reason))"
         case .streamUnavailable:
-            return "Strömmen svarade inte. Prova en annan kanal eller försök igen senare."
+            return "The stream didn't respond. Try another channel or come back later."
         case .streamNotSupported(let detail):
             return detail
         case .timedOut:
-            return "Anslutningen tog för lång tid. Försök igen om en stund."
+            return "The connection timed out. Try again in a moment."
         case .cancelled:
-            return "Begäran avbröts."
+            return "The request was stopped."
         case .unknown:
-            return "Försök igen. Om det fortsätter, kontrollera dina leverantörsinställningar."
+            return "Please try again. If it keeps happening, check your provider settings."
         }
     }
 
@@ -83,9 +83,9 @@ public enum ProviderError: Error, Equatable, Sendable {
 
         public var label: String {
             switch self {
-            case .retry:           return "Försök igen"
-            case .checkConnection: return "Kontrollera anslutning"
-            case .editProvider:    return "Ändra leverantör"
+            case .retry:           return "Try Again"
+            case .checkConnection: return "Check Connection"
+            case .editProvider:    return "Edit Provider"
             }
         }
     }

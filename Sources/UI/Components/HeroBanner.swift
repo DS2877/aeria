@@ -148,25 +148,25 @@ struct HeroBanner: View {
                     Button {
                         Task { playback = await env.playback(forMovie: hero.id) }
                     } label: {
-                        Label("Spela", systemImage: "play.fill")
+                        Label("Play", systemImage: "play.fill")
                     }
                     .buttonStyle(PrimaryButtonStyle())
                     .focused($focusedControl, equals: .play)
-                    .accessibilityLabel("Spela \(hero.title)")
+                    .accessibilityLabel("Play \(hero.title)")
 
                     Button { onSelect(hero) } label: {
-                        Label("Mer info", systemImage: "info.circle")
+                        Label("More Info", systemImage: "info.circle")
                     }
                     .buttonStyle(SecondaryButtonStyle())
                     .focused($focusedControl, equals: .info)
-                    .accessibilityLabel("Mer info, \(hero.title)")
+                    .accessibilityLabel("More Info, \(hero.title)")
                 } else {
                     Button { onSelect(hero) } label: {
-                        Label("Mer info", systemImage: "info.circle")
+                        Label("More Info", systemImage: "info.circle")
                     }
                     .buttonStyle(PrimaryButtonStyle())
                     .focused($focusedControl, equals: .info)
-                    .accessibilityLabel("Mer info, \(hero.title)")
+                    .accessibilityLabel("More Info, \(hero.title)")
                 }
 
                 if heroes.count > 1 { pageDots }

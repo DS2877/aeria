@@ -72,26 +72,26 @@ struct ProviderSetupView: View {
     private var chooser: some View {
         VStack(alignment: .leading, spacing: Metrics.space4) {
             VStack(alignment: .leading, spacing: Metrics.space1) {
-                Text("Lägg till din TV-leverantör").font(.dsHero)
-                Text("Anslut den IPTV-tjänst du redan abonnerar på. Aeria+ är bara spelaren — den tillhandahåller, lagrar eller styr inga egna kanaler eller eget innehåll.")
+                Text("Add your TV provider").font(.dsHero)
+                Text("Connect the IPTV service you already subscribe to. Aeria+ is just the player — it provides, hosts, and controls no channels or content of its own.")
                     .font(.dsBody).foregroundStyle(Palette.textSecondary)
                     .frame(maxWidth: 800, alignment: .leading)
             }
 
             HStack(spacing: Metrics.space3) {
-                choiceCard(title: "Xtream Codes", subtitle: "Server, användarnamn & lösenord", icon: "person.badge.key") {
+                choiceCard(title: "Xtream Codes", subtitle: "Server, username & password", icon: "person.badge.key") {
                     step = .xtream
                 }
-                choiceCard(title: "M3U-spellista", subtitle: "En länk till spellistan (.m3u / .m3u8)", icon: "link") {
+                choiceCard(title: "M3U Playlist URL", subtitle: "A playlist link (.m3u / .m3u8)", icon: "link") {
                     step = .m3u
                 }
-                choiceCard(title: "Prova demon", subtitle: "Utforska med exempelinnehåll", icon: "sparkles") {
+                choiceCard(title: "Try the demo", subtitle: "Explore with sample content", icon: "sparkles") {
                     Task { await activate(.demo) }
                 }
             }
 
             if isDismissable {
-                Button("Avbryt") { dismiss() }.buttonStyle(.bordered)
+                Button("Cancel") { dismiss() }.buttonStyle(.bordered)
             }
         }
     }
@@ -115,17 +115,17 @@ struct ProviderSetupView: View {
     private var xtreamForm: some View {
         VStack(alignment: .leading, spacing: Metrics.space3) {
             Text("Xtream Codes").font(.dsTitle)
-            Text("Ange uppgifterna från din leverantör. De sparas säkert på den här Apple TV:n och skickas bara till leverantören.")
+            Text("Enter the details from your provider. These are stored securely on this Apple TV and only sent to your provider.")
                 .font(.dsCaption).foregroundStyle(Palette.textSecondary).frame(maxWidth: 800, alignment: .leading)
 
-            LabeledField("Serveradress", text: $host, prompt: "http://example.com:8080")
-            LabeledField("Användarnamn", text: $username, prompt: "användarnamn")
-            LabeledField("Lösenord", text: $password, prompt: "lösenord", isSecure: true)
-            LabeledField("Namn (valfritt)", text: $nickname, prompt: "Min leverantör")
+            LabeledField("Server URL or host", text: $host, prompt: "http://example.com:8080")
+            LabeledField("Username", text: $username, prompt: "username")
+            LabeledField("Password", text: $password, prompt: "password", isSecure: true)
+            LabeledField("Name (optional)", text: $nickname, prompt: "My Provider")
 
             HStack(spacing: Metrics.space2) {
-                Button("Tillbaka") { step = .choose }.buttonStyle(SecondaryButtonStyle())
-                Button("Anslut") { Task { await activate(.xtream) } }
+                Button("Back") { step = .choose }.buttonStyle(SecondaryButtonStyle())
+                Button("Connect") { Task { await activate(.xtream) } }
                     .buttonStyle(PrimaryButtonStyle())
                     .disabled(host.isEmpty || username.isEmpty || password.isEmpty)
             }
@@ -136,14 +136,14 @@ struct ProviderSetupView: View {
 
     private var m3uForm: some View {
         VStack(alignment: .leading, spacing: Metrics.space3) {
-            Text("M3U-spellista").font(.dsTitle)
-            LabeledField("Länk till spellistan", text: $playlistURL, prompt: "https://…/get.php?…")
-            LabeledField("Länk till TV-tablå/EPG (valfritt)", text: $epgURL, prompt: "https://…/xmltv.php?…")
-            LabeledField("Namn (valfritt)", text: $nickname, prompt: "Min spellista")
+            Text("M3U Playlist").font(.dsTitle)
+            LabeledField("Playlist URL", text: $playlistURL, prompt: "https://…/get.php?…")
+            LabeledField("EPG / TV guide URL (optional)", text: $epgURL, prompt: "https://…/xmltv.php?…")
+            LabeledField("Name (optional)", text: $nickname, prompt: "My Playlist")
 
             HStack(spacing: Metrics.space2) {
-                Button("Tillbaka") { step = .choose }.buttonStyle(SecondaryButtonStyle())
-                Button("Anslut") { Task { await activate(.m3u) } }
+                Button("Back") { step = .choose }.buttonStyle(SecondaryButtonStyle())
+                Button("Connect") { Task { await activate(.m3u) } }
                     .buttonStyle(PrimaryButtonStyle())
                     .disabled(playlistURL.isEmpty)
             }
@@ -260,7 +260,7 @@ struct LibraryLoadingView: View {
     private var checklist: some View {
         VStack(alignment: .leading, spacing: Metrics.space4) {
             VStack(alignment: .leading, spacing: Metrics.space1) {
-                Text(isReady ? "Din TV är redo" : "Förbereder ditt bibliotek")
+                Text(isReady ? "Your TV is ready" : "Preparing your library")
                     .font(.dsHero)
                 Text(subtitle)
                     .font(.dsBody).foregroundStyle(Palette.textSecondary)
@@ -270,7 +270,7 @@ struct LibraryLoadingView: View {
                 ForEach(ImportPhase.checklist) { phase in
                     ChecklistRow(label: phase.label, state: rowState(for: phase))
                 }
-                ChecklistRow(label: "Organiserar ditt bibliotek",
+                ChecklistRow(label: "Organising your library",
                              state: isReady ? .done : (isNormalizing ? .active : .pending))
             }
             .padding(Metrics.space3)
@@ -285,11 +285,11 @@ struct LibraryLoadingView: View {
 
             if showStartButton, isReady || canEscape {
                 VStack(alignment: .leading, spacing: Metrics.space1) {
-                    Button(isReady ? "Börja titta" : "Gå in i appen", action: onStart)
+                    Button(isReady ? "Start Watching" : "Enter the app", action: onStart)
                         .buttonStyle(PrimaryButtonStyle())
                         .focused($startFocused)
                     if !isReady {
-                        Text("Biblioteket laddas fortfarande — det fylls på medan du bläddrar.")
+                        Text("Your library is still loading — it'll keep filling in while you browse.")
                             .font(.dsCaption).foregroundStyle(Palette.textTertiary)
                     }
                 }
@@ -307,10 +307,10 @@ struct LibraryLoadingView: View {
     }
 
     private var subtitle: String {
-        if isReady { return "Allt är importerat och klart." }
-        if isConnecting { return "Ansluter till din leverantör…" }
-        if isNormalizing { return "Snyggar till kanalnamn, matchar avsnitt och språk…" }
-        return "Första gången kan det ta någon minut för ett stort bibliotek."
+        if isReady { return "Everything's imported and tidied up." }
+        if isConnecting { return "Connecting to your provider…" }
+        if isNormalizing { return "Cleaning up channel names, matching episodes and languages…" }
+        return "This can take a minute the first time for a large library."
     }
 
     private enum RowState: Equatable { case pending, active, done }

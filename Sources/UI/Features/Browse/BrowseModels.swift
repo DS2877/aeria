@@ -6,8 +6,8 @@ public enum BrowseKind: Sendable {
 
     var title: String {
         switch self {
-        case .movies: return "Filmer"
-        case .series: return "Serier"
+        case .movies: return "Movies"
+        case .series: return "Series"
         }
     }
 }

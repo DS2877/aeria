@@ -26,8 +26,8 @@ public enum ChannelSort: String, CaseIterable, Sendable {
 
     public var label: String {
         switch self {
-        case .number:  return "För dig"
-        case .nameAsc: return "A–Ö"
+        case .number:  return "For you"
+        case .nameAsc: return "A–Z"
         }
     }
 }
@@ -40,10 +40,10 @@ public enum BrowseSort: String, CaseIterable, Sendable, Codable {
 
     public var label: String {
         switch self {
-        case .recentlyAdded:  return "Senast tillagt"
-        case .titleAscending: return "A–Ö"
-        case .newest:         return "Nyast"
-        case .oldest:         return "Äldst"
+        case .recentlyAdded:  return "Recently Added"
+        case .titleAscending: return "A–Z"
+        case .newest:         return "Newest"
+        case .oldest:         return "Oldest"
         }
     }
 }

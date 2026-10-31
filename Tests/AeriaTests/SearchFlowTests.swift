@@ -16,19 +16,19 @@ final class SearchFlowTests: XCTestCase {
 
         let chips = SearchViewModel.chips(for: intent)
         let labels = Set(chips.map(\.label))
-        XCTAssertTrue(labels.contains("Filmer"))
-        XCTAssertTrue(labels.contains("Skräck"))
-        XCTAssertTrue(labels.contains("Tal: Engelska"))
-        XCTAssertTrue(labels.contains("Text: Svenska"))
-        XCTAssertTrue(labels.contains("Efter 2020"))
-        XCTAssertTrue(labels.contains("Under 2 tim"))
+        XCTAssertTrue(labels.contains("Movies"))
+        XCTAssertTrue(labels.contains("Horror"))
+        XCTAssertTrue(labels.contains("English audio"))
+        XCTAssertTrue(labels.contains("Swedish subtitles"))
+        XCTAssertTrue(labels.contains("After 2020"))
+        XCTAssertTrue(labels.contains("Under 2h"))
         XCTAssertTrue(labels.contains("4K+"))
     }
 
     func testRemovingAChipClearsThatConstraint() throws {
         var intent = SearchIntent()
         intent.genres = [.horror, .comedy]
-        let horrorChip = try XCTUnwrap(SearchViewModel.chips(for: intent).first { $0.label == "Skräck" })
+        let horrorChip = try XCTUnwrap(SearchViewModel.chips(for: intent).first { $0.label == "Horror" })
 
         var updated = intent
         horrorChip.remove(&updated)   // `remove` is internal; @testable exposes it
@@ -47,7 +47,7 @@ final class SearchFlowTests: XCTestCase {
         XCTAssertTrue(vm.hasSearched)
         XCTAssertFalse(vm.results.isEmpty)
         XCTAssertTrue(vm.results.allSatisfy { $0.kind == .movie })
-        XCTAssertTrue(vm.chips.contains { $0.label == "Skräck" })
+        XCTAssertTrue(vm.chips.contains { $0.label == "Horror" })
     }
 
     @MainActor

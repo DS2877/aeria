@@ -11,7 +11,7 @@ struct SettingsView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: Metrics.space5) {
-                    Text("Inställningar").font(.dsTitle)
+                    Text("Settings").font(.dsTitle)
                         .accessibilityAddTraits(.isHeader)
                         .padding(.top, Metrics.space4)
 
@@ -46,33 +46,33 @@ struct SettingsView: View {
 
     private var artworkSection: some View {
         VStack(alignment: .leading, spacing: Metrics.space2) {
-            SectionHeader("Bilder & information", subtitle: "Riktiga affischer, bakgrundsbilder och handlingar från The Movie Database")
+            SectionHeader("Artwork & metadata", subtitle: "Real posters, backdrops and synopses from The Movie Database")
             Button { showTMDBKey = true } label: {
                 HStack {
-                    Label(env.hasTMDBKey ? "Använder din egen TMDB-nyckel" : "The Movie Database — på",
+                    Label(env.hasTMDBKey ? "Using your own TMDB key" : "The Movie Database — on",
                           systemImage: "checkmark.seal")
                         .font(.dsBody)
                     Spacer()
-                    Text(env.hasTMDBKey ? "Ändra" : "Använd egen nyckel").font(.dsCaption).foregroundStyle(Palette.textTertiary)
+                    Text(env.hasTMDBKey ? "Change" : "Use my own key").font(.dsCaption).foregroundStyle(Palette.textTertiary)
                 }
             }
             .buttonStyle(RowButtonStyle())
-            Text("Det här är påslaget som standard. Du kan använda en egen gratis nyckel från themoviedb.org om du vill. Bara titel och år på det du bläddrar bland skickas.")
+            Text("Enrichment is on by default. You can supply your own free themoviedb.org key here if you prefer. Only the title and year of what you browse are ever sent.")
                 .font(.dsCaption).foregroundStyle(Palette.textTertiary)
                 .frame(maxWidth: 900, alignment: .leading)
-            Text("Den här produkten använder TMDB:s API men är inte godkänd eller certifierad av TMDB.")
+            Text("This product uses the TMDB API but is not endorsed or certified by TMDB.")
                 .font(.dsTag).foregroundStyle(Palette.textTertiary)
         }
     }
 
     private var personalizeSection: some View {
         VStack(alignment: .leading, spacing: Metrics.space2) {
-            SectionHeader("Anpassa", subtitle: "Språk, undertexter, vuxenfilter, rader på Hem")
+            SectionHeader("Personalize", subtitle: "Languages, subtitles, adult filter, Home rows")
             Button {
                 showPersonalize = true
             } label: {
                 HStack {
-                    Label("Ändra dina inställningar", systemImage: "slider.horizontal.3")
+                    Label("Edit your preferences", systemImage: "slider.horizontal.3")
                         .font(.dsBody)
                     Spacer()
                     Text(preferenceSummary).font(.dsCaption).foregroundStyle(Palette.textTertiary)
@@ -88,16 +88,16 @@ struct SettingsView: View {
         if !p.preferredAudioLanguages.isEmpty {
             parts.append(p.preferredAudioLanguages.map(\.displayName).joined(separator: ", "))
         }
-        if let s = p.preferredSubtitleLanguage { parts.append("Text: \(s.displayName)") }
-        parts.append("Kanaler: \(p.channelRegionScope.swedishMarket.title)")
-        if p.hideAdultContent { parts.append("Vuxet dolt") }
-        if env.parental.isEnabled { parts.append("PIN på") }
-        return parts.isEmpty ? "Inte valt" : parts.joined(separator: " · ")
+        if let s = p.preferredSubtitleLanguage { parts.append("\(s.displayName) subs") }
+        parts.append("Channels: \(p.channelRegionScope.swedishMarket.title)")
+        if p.hideAdultContent { parts.append("Adult hidden") }
+        if env.parental.isEnabled { parts.append("PIN on") }
+        return parts.isEmpty ? "Not set" : parts.joined(separator: " · ")
     }
 
     private var providersSection: some View {
         VStack(alignment: .leading, spacing: Metrics.space2) {
-            SectionHeader("Din leverantör")
+            SectionHeader("Your Provider")
 
             ForEach(env.providers.allConfigurations) { config in
                 HStack(spacing: Metrics.space2) {
@@ -110,9 +110,9 @@ struct SettingsView: View {
                     }
                     Spacer()
                     if config.id == env.providers.activeID {
-                        Text("Aktiv").font(.dsTag).foregroundStyle(Palette.accent)
+                        Text("Active").font(.dsTag).foregroundStyle(Palette.accent)
                     } else {
-                        Button("Använd") { Task { await env.activate(config) } }
+                        Button("Use") { Task { await env.activate(config) } }
                             .buttonStyle(.bordered)
                     }
                     if config.kind != .mock {
@@ -120,7 +120,7 @@ struct SettingsView: View {
                             Task { await env.removeProvider(config.id) }
                         } label: { Image(systemName: "trash") }
                             .buttonStyle(.bordered)
-                            .accessibilityLabel("Ta bort \(config.displayName)")
+                            .accessibilityLabel("Remove \(config.displayName)")
                     }
                 }
                 .padding(Metrics.space2)
@@ -131,14 +131,14 @@ struct SettingsView: View {
                 Button {
                     showAddProvider = true
                 } label: {
-                    Label("Lägg till leverantör", systemImage: "plus")
+                    Label("Add a provider", systemImage: "plus")
                 }
                 .buttonStyle(.bordered)
 
                 Button {
                     Task { await env.refreshLibrary() }
                 } label: {
-                    Label(env.isRefreshing ? "Uppdaterar…" : "Uppdatera biblioteket",
+                    Label(env.isRefreshing ? "Refreshing…" : "Refresh library",
                           systemImage: "arrow.clockwise")
                 }
                 .buttonStyle(.bordered)
@@ -150,7 +150,7 @@ struct SettingsView: View {
 
     private var aiSection: some View {
         VStack(alignment: .leading, spacing: Metrics.space2) {
-            SectionHeader("AI-sökning", subtitle: "Förstår sökningar på vanligt språk")
+            SectionHeader("AI Search", subtitle: "Natural-language search understanding")
             Toggle(isOn: Binding(
                 get: { env.preferences.preferences.aiAssistedSearch },
                 set: { on in
@@ -159,8 +159,8 @@ struct SettingsView: View {
                 }
             )) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Använd AI-stöd").font(.dsBody)
-                    Text("När det är på skickar oklara sökningar bara dina ord och bibliotekets genrer/språk — aldrig leverantörsuppgifter, strömlänkar eller vad du tittar på.")
+                    Text("Use AI-assisted understanding").font(.dsBody)
+                    Text("When on, ambiguous searches send only your words and the list of genres/languages in your library — never your provider details, stream links, or what you watch.")
                         .font(.dsCaption).foregroundStyle(Palette.textTertiary)
                         .frame(maxWidth: 900, alignment: .leading)
                 }
@@ -173,16 +173,16 @@ struct SettingsView: View {
                     showAIKey = true
                 } label: {
                     HStack {
-                        Label(env.hasAIKey ? "Claude-nyckel ansluten" : "Anslut en Claude API-nyckel",
+                        Label(env.hasAIKey ? "Claude key connected" : "Connect a Claude API key",
                               systemImage: env.hasAIKey ? "checkmark.seal" : "key")
                             .font(.dsBody)
                         Spacer()
-                        Text(env.hasAIKey ? "Ändra" : "Lägg till").font(.dsCaption).foregroundStyle(Palette.textTertiary)
+                        Text(env.hasAIKey ? "Change" : "Add").font(.dsCaption).foregroundStyle(Palette.textTertiary)
                     }
                 }
                 .buttonStyle(RowButtonStyle())
 
-                Text("Utan nyckel används sökningen som körs direkt på enheten.")
+                Text("Without a key, AI-assisted search quietly falls back to on-device understanding.")
                     .font(.dsCaption).foregroundStyle(Palette.textTertiary)
             }
         }
@@ -190,8 +190,8 @@ struct SettingsView: View {
 
     private var aboutSection: some View {
         VStack(alignment: .leading, spacing: Metrics.space2) {
-            SectionHeader("Om")
-            Text("Aeria+ är enbart en spelare. Den tillhandahåller, lagrar eller styr inga kanaler, strömmar eller medier — du ansluter en IPTV-tjänst du redan abonnerar på. Vi ansvarar inte för innehåll som tredje part väljer att titta på via spelaren.")
+            SectionHeader("About")
+            Text("Aeria+ is a player only. It does not provide, host, or control any channels, streams, or media — you connect an IPTV service you already subscribe to. We take no responsibility for content that third parties choose to view through the player.")
                 .font(.dsCaption).foregroundStyle(Palette.textSecondary)
                 .frame(maxWidth: 1000, alignment: .leading)
             HStack(spacing: Metrics.space3) {
@@ -233,9 +233,9 @@ struct SettingsView: View {
 
     private func subtitle(for config: ProviderConfiguration) -> String {
         switch config.kind {
-        case .mock:   return "Exempelinnehåll för att utforska appen"
+        case .mock:   return "Sample content for exploring the app"
         case .xtream: return [config.xtreamUsername, config.xtreamHost].compactMap { $0 }.joined(separator: " · ")
-        case .m3u:    return config.m3uHostForDisplay ?? "Spellista"
+        case .m3u:    return config.m3uHostForDisplay ?? "Playlist"
         }
     }
 }

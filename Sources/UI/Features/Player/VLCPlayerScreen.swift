@@ -39,7 +39,7 @@ struct VLCPlayerScreen: View {
                 if case .failed(let error) = model.state {
                     VStack(spacing: Metrics.space3) {
                         ErrorStateView(error: error, onRetry: nil, onEditProvider: nil)
-                        Button("Stäng") { dismiss() }.buttonStyle(PrimaryButtonStyle())
+                        Button("Close") { dismiss() }.buttonStyle(PrimaryButtonStyle())
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(Color.black.opacity(0.96))
@@ -57,7 +57,7 @@ struct VLCPlayerScreen: View {
                                     Text(subtitle)
                                         .font(.dsCaption).foregroundStyle(.white.opacity(0.65)).lineLimit(1)
                                 }
-                                Text("Startar…")
+                                Text("Starting…")
                                     .font(.dsTag).foregroundStyle(.white.opacity(0.45)).padding(.top, 2)
                             }
                             .frame(maxWidth: 900)
@@ -65,7 +65,7 @@ struct VLCPlayerScreen: View {
                         }
                         .transition(.opacity)
                         .accessibilityElement(children: .ignore)
-                        .accessibilityLabel("Laddar \(item.title)")
+                        .accessibilityLabel("Loading \(item.title)")
                     }
                     if controlsVisible {
                         controls(model).transition(.opacity)
@@ -77,7 +77,7 @@ struct VLCPlayerScreen: View {
         .focused($surfaceFocused)
         .accessibilityLabel(item.title)
         .accessibilityValue(accessibilityStatus)
-        .accessibilityHint("Svep vänster eller höger för att spola. Tryck spela/paus för att pausa. Tryck Meny för att avsluta.")
+        .accessibilityHint("Swipe left or right to seek. Press play-pause to pause or resume. Press Menu to exit.")
         .accessibilityAddTraits(.startsMediaSession)
         .onPlayPauseCommand { model?.togglePlayPause(); flashControls() }
         .onMoveCommand { direction in
@@ -127,14 +127,14 @@ struct VLCPlayerScreen: View {
     /// Spoken status for VoiceOver — the custom transport has no focusable
     /// controls of its own.
     private var accessibilityStatus: String {
-        guard let model else { return "Laddar" }
+        guard let model else { return "Loading" }
         switch model.state {
         case .loading: return "Loading"
         case .failed:  return "Playback failed"
         case .paused:  return "Paused"
         case .playing:
-            guard model.duration > 0 else { return item.isLive ? "Live" : "Spelar" }
-            return "\(timecode(model.position)) av \(timecode(model.duration))"
+            guard model.duration > 0 else { return item.isLive ? "Live" : "Playing" }
+            return "\(timecode(model.position)) of \(timecode(model.duration))"
         }
     }
 
@@ -198,8 +198,8 @@ struct VLCPlayerScreen: View {
                 }
 
                 Text((hasTracks || !item.isLive)
-                     ? "‹ ›  spola      ▮▮  spela/paus      ▲  val      Meny  avsluta"
-                     : "‹ ›  spola      ▮▮  spela/paus      Meny  avsluta")
+                     ? "‹ ›  scrub      ▮▮  play/pause      ▲  options      Menu  exit"
+                     : "‹ ›  scrub      ▮▮  play/pause      Menu  exit")
                     .font(.dsCaption).foregroundStyle(.white.opacity(0.45))
                     .padding(.top, Metrics.space1)
             }
@@ -229,12 +229,12 @@ private struct VLCTrackSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: Metrics.space5) {
                     if model.audioTracks.count > 1 {
-                        section("Ljud", tracks: model.audioTracks, current: model.currentAudioID) {
+                        section("Audio", tracks: model.audioTracks, current: model.currentAudioID) {
                             model.selectAudio($0); dismiss()
                         }
                     }
                     if model.subtitleTracks.count > 1 {
-                        section("Undertexter", tracks: model.subtitleTracks, current: model.currentSubtitleID) {
+                        section("Subtitles", tracks: model.subtitleTracks, current: model.currentSubtitleID) {
                             model.selectSubtitle($0); dismiss()
                         }
                     }
@@ -252,7 +252,7 @@ private struct VLCTrackSheet: View {
 
     private var sleepSection: some View {
         VStack(alignment: .leading, spacing: Metrics.space2) {
-            Text("Insomningstimer").font(.dsSectionHeader).foregroundStyle(Palette.textPrimary)
+            Text("Sleep timer").font(.dsSectionHeader).foregroundStyle(Palette.textPrimary)
             ForEach([nil, 15, 30, 45, 60] as [Int?], id: \.self) { minutes in
                 Button {
                     model.setSleepTimer(minutes: minutes)
@@ -261,7 +261,7 @@ private struct VLCTrackSheet: View {
                     HStack {
                         Image(systemName: model.sleepMinutes == minutes ? "checkmark.circle.fill" : "circle")
                             .foregroundStyle(model.sleepMinutes == minutes ? Palette.accent : Palette.textTertiary)
-                        Text(minutes.map { "\($0) minuter" } ?? "Av")
+                        Text(minutes.map { "\($0) minutes" } ?? "Off")
                             .font(.dsBody).foregroundStyle(Palette.textPrimary)
                         Spacer()
                     }

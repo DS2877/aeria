@@ -249,10 +249,10 @@ struct LiveTVBrowseView: View {
                     } else if model.rows.isEmpty && !model.isLoading {
                         EmptyStateView(
                             icon: model.favoritesOnly ? "star" : "tv",
-                            title: model.favoritesOnly ? "Inga favoritkanaler" : "Inga kanaler",
+                            title: model.favoritesOnly ? "No favorite channels" : "No channels",
                             message: model.favoritesOnly
-                                ? "Håll inne på en kanal och välj Lägg till i Favoriter så syns den här."
-                                : "Inga kanaler i den här kategorin."
+                                ? "Heart a channel from its detail screen to see it here."
+                                : "No channels in this category."
                         )
                         .frame(minHeight: 400)
                     } else {
@@ -300,11 +300,11 @@ struct LiveTVBrowseView: View {
     private func header(_ model: LiveTVBrowseViewModel, proxy: ScrollViewProxy) -> some View {
         VStack(alignment: .leading, spacing: Metrics.space2) {
             HStack(alignment: .firstTextBaseline, spacing: Metrics.space2) {
-                Text("Live-TV").font(.dsTitle).accessibilityAddTraits(.isHeader)
+                Text("Live TV").font(.dsTitle).accessibilityAddTraits(.isHeader)
                 Text("\(model.total)").font(.dsCardTitle).foregroundStyle(Palette.textTertiary)
                 Spacer()
                 HStack(spacing: Metrics.space1) {
-                    FilterChip(label: "★ Favoriter", isSelected: model.favoritesOnly) {
+                    FilterChip(label: "★ Favorites", isSelected: model.favoritesOnly) {
                         model.favoritesOnly.toggle()
                     }
                     ForEach(ChannelSort.allCases, id: \.self) { option in
@@ -318,8 +318,7 @@ struct LiveTVBrowseView: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: Metrics.space1) {
                         ForEach(model.categories, id: \.self) { category in
-                            FilterChip(label: category == "All" ? "Alla" : category,
-                                       isSelected: model.selectedCategory == category) {
+                            FilterChip(label: category, isSelected: model.selectedCategory == category) {
                                 model.selectedCategory = category
                             }
                         }
@@ -344,7 +343,7 @@ struct LiveTVBrowseView: View {
                                     }
                                 }
                             }
-                            .accessibilityLabel("Hoppa till \(anchor.letter)")
+                            .accessibilityLabel("Jump to \(anchor.letter)")
                         }
                     }
                     .padding(.vertical, Metrics.space1)
@@ -352,7 +351,7 @@ struct LiveTVBrowseView: View {
                 }
                 .scrollClipDisabled()
                 .focusSection()
-                .accessibilityLabel("Hoppa till bokstav")
+                .accessibilityLabel("Jump to letter")
             }
         }
         .padding(.horizontal, Metrics.screenMargin)

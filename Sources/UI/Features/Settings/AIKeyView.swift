@@ -16,8 +16,8 @@ struct AIKeyView: View {
 
             VStack(alignment: .leading, spacing: Metrics.space4) {
                 VStack(alignment: .leading, spacing: Metrics.space1) {
-                    Text("Anslut Claude").font(.dsTitle)
-                    Text("Klistra in en Anthropic API-nyckel från console.anthropic.com. Den sparas bara på den här Apple TV:n. Varje AI-sökning skickar bara dina ord och bibliotekets genrer och språk — aldrig din leverantör, länkar eller historik.")
+                    Text("Connect Claude").font(.dsTitle)
+                    Text("Paste an Anthropic API key from console.anthropic.com. It's stored only on this Apple TV. Each AI-assisted search sends just your words and your library's genre and language lists — never your provider, links, or history.")
                         .font(.dsBody).foregroundStyle(Palette.textSecondary)
                         .frame(maxWidth: 900, alignment: .leading)
                 }
@@ -32,10 +32,10 @@ struct AIKeyView: View {
                     .frame(maxWidth: 820)
 
                 HStack(spacing: Metrics.space2) {
-                    Button("Avbryt") { dismiss() }
+                    Button("Cancel") { dismiss() }
                         .buttonStyle(SecondaryButtonStyle())
 
-                    Button(saving ? "Sparar…" : "Spara") {
+                    Button(saving ? "Saving…" : "Save") {
                         saving = true
                         Task {
                             await env.setAIKey(key)
@@ -49,7 +49,7 @@ struct AIKeyView: View {
                         Button(role: .destructive) {
                             Task { await env.setAIKey(""); dismiss() }
                         } label: {
-                            Label("Ta bort nyckel", systemImage: "trash")
+                            Label("Remove key", systemImage: "trash")
                         }
                         .buttonStyle(SecondaryButtonStyle())
                     }

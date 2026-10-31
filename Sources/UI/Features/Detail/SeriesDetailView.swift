@@ -18,8 +18,8 @@ struct SeriesDetailView: View {
             if let series {
                 loaded(series)
             } else if notFound {
-                EmptyStateView(icon: "rectangle.stack", title: "Inte tillgänglig",
-                               message: "Serien finns inte längre i ditt bibliotek.")
+                EmptyStateView(icon: "rectangle.stack", title: "Not available",
+                               message: "This series isn't in your library anymore.")
             } else {
                 ProgressView().controlSize(.large)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -119,7 +119,7 @@ struct SeriesDetailView: View {
                 CastRail(credits: credits)
             }
             episodes(series, season: season)
-            RelatedRail(title: "Mer som detta", items: related)
+            RelatedRail(title: "More Like This", items: related)
         }
     }
 
@@ -157,7 +157,7 @@ struct SeriesDetailView: View {
                     series.year.map(String.init),
                     series.genres.first?.displayName ?? enriched?.genres?.first,
                     series.seasons.isEmpty ? nil
-                        : "\(series.seasons.count) \(series.seasons.count == 1 ? "säsong" : "säsonger")",
+                        : "\(series.seasons.count) season\(series.seasons.count == 1 ? "" : "s")",
                     series.quality > .unknown ? series.quality.shortLabel : nil,
                 ])
             }
@@ -171,8 +171,8 @@ struct SeriesDetailView: View {
             if watched.total > 0, watched.done > 0 {
                 VStack(alignment: .leading, spacing: 6) {
                     Text(watched.done >= watched.total
-                         ? "Alla \(watched.total) avsnitt sedda"
-                         : "\(watched.done) av \(watched.total) avsnitt sedda")
+                         ? "All \(watched.total) episodes watched"
+                         : "\(watched.done) of \(watched.total) episodes watched")
                         .font(.dsCaption).foregroundStyle(Palette.textTertiary)
                     ProgressView(value: Double(watched.done), total: Double(watched.total))
                         .tint(Palette.accent)
@@ -198,7 +198,7 @@ struct SeriesDetailView: View {
                 Button {
                     playback = env.playback(forEpisode: resume, seriesTitle: series.title)
                 } label: {
-                    Label("Återuppta \(resume.code)", systemImage: "play.fill")
+                    Label("Resume \(resume.code)", systemImage: "play.fill")
                 }
                 .buttonStyle(PrimaryButtonStyle())
 
@@ -206,7 +206,7 @@ struct SeriesDetailView: View {
                     Button {
                         playback = env.playback(forEpisode: first, seriesTitle: series.title)
                     } label: {
-                        Label("Från början", systemImage: "gobackward")
+                        Label("From Start", systemImage: "gobackward")
                     }
                     .buttonStyle(SecondaryButtonStyle())
                 }
@@ -215,7 +215,7 @@ struct SeriesDetailView: View {
                 Button {
                     playback = env.playback(forEpisode: next, seriesTitle: series.title)
                 } label: {
-                    Label("\(anyFinished ? "Nästa:" : "Spela") \(next.code)", systemImage: "play.fill")
+                    Label("\(anyFinished ? "Next" : "Play") \(next.code)", systemImage: "play.fill")
                 }
                 .buttonStyle(PrimaryButtonStyle())
 
@@ -223,7 +223,7 @@ struct SeriesDetailView: View {
                     Button {
                         playback = env.playback(forEpisode: first, seriesTitle: series.title)
                     } label: {
-                        Label("Från början", systemImage: "gobackward")
+                        Label("From Start", systemImage: "gobackward")
                     }
                     .buttonStyle(SecondaryButtonStyle())
                 }
@@ -236,7 +236,7 @@ struct SeriesDetailView: View {
                     .symbolEffect(.bounce, value: env.favorites.isFavorite(series.id))
             }
             .buttonStyle(SecondaryButtonStyle())
-            .accessibilityLabel(env.favorites.isFavorite(series.id) ? "Ta bort från Favoriter" : "Lägg till i Favoriter")
+            .accessibilityLabel(env.favorites.isFavorite(series.id) ? "Remove from Favorites" : "Add to Favorites")
         }
     }
 
@@ -255,7 +255,7 @@ struct SeriesDetailView: View {
             }
 
             if showTextCast {
-                creditRow("Medverkande", textCast)
+                creditRow("Cast", textCast)
             }
         }
     }
@@ -265,11 +265,11 @@ struct SeriesDetailView: View {
         VStack(alignment: .leading, spacing: Metrics.space3) {
             // Heading: "Season 2  ·  10 episodes" + the season toggle, right-aligned.
             HStack(alignment: .center, spacing: Metrics.space2) {
-                Text(season.map { "Säsong \($0.number)" } ?? "Avsnitt")
+                Text(season.map { "Season \($0.number)" } ?? "Episodes")
                     .font(.dsSectionHeader)
                     .foregroundStyle(Palette.textPrimary)
                 if let season, !season.episodes.isEmpty {
-                    Text("·  \(season.episodes.count) avsnitt")
+                    Text("·  \(season.episodes.count) episode\(season.episodes.count == 1 ? "" : "s")")
                         .font(.dsCaption)
                         .foregroundStyle(Palette.textTertiary)
                 }
@@ -286,10 +286,10 @@ struct SeriesDetailView: View {
             if loadingEpisodes {
                 HStack(spacing: Metrics.space2) {
                     ProgressView().tint(Palette.accent)
-                    Text("Laddar avsnitt…").font(.dsCaption).foregroundStyle(Palette.textTertiary)
+                    Text("Loading episodes…").font(.dsCaption).foregroundStyle(Palette.textTertiary)
                 }
             } else if series.seasons.isEmpty {
-                Text("Inga avsnitt finns för den här serien.")
+                Text("No episodes available for this series.")
                     .font(.dsCaption).foregroundStyle(Palette.textTertiary)
             }
 
@@ -327,11 +327,11 @@ struct SeriesDetailView: View {
                 env.markEpisodesWatched(ids)
             }
         } label: {
-            Label(allWatched ? "Markera säsongen som osedd" : "Markera säsongen som sedd",
+            Label(allWatched ? "Mark season unwatched" : "Mark season watched",
                   systemImage: allWatched ? "arrow.uturn.backward" : "checkmark.circle")
         }
         .buttonStyle(SecondaryButtonStyle())
-        .accessibilityLabel(allWatched ? "Markera hela säsongen som osedd" : "Markera hela säsongen som sedd")
+        .accessibilityLabel(allWatched ? "Mark whole season unwatched" : "Mark whole season watched")
     }
 
     private func seasonSelector(_ series: Series) -> some View {
@@ -341,7 +341,7 @@ struct SeriesDetailView: View {
                     Button {
                         selectedSeason = season.number
                     } label: {
-                        Text("Säsong \(season.number)")
+                        Text("Season \(season.number)")
                     }
                     .buttonStyle(SeasonButtonStyle(isSelected: season.number == selectedSeason))
                     .accessibilityAddTraits(season.number == selectedSeason ? [.isButton, .isSelected] : .isButton)
@@ -352,7 +352,7 @@ struct SeriesDetailView: View {
         }
         .scrollClipDisabled()
         .focusSection()
-        .accessibilityLabel("Välj säsong")
+        .accessibilityLabel("Choose a season")
     }
 
     private func episodeRow(_ episode: Episode, seriesTitle: String) -> some View {
@@ -411,7 +411,7 @@ struct SeriesDetailView: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     if let progress, progress.isResumable {
-                        Text("Återuppta från \(Int(progress.fraction * 100)) %")
+                        Text("Resume from \(Int(progress.fraction * 100))%")
                             .font(.dsTag).foregroundStyle(Palette.accent)
                             .padding(.top, 2)
                     }
@@ -424,14 +424,14 @@ struct SeriesDetailView: View {
             if watched {
                 Button {
                     env.markUnwatched(id: episode.id)
-                } label: { Label("Markera som osedd", systemImage: "arrow.uturn.backward") }
+                } label: { Label("Mark as Unwatched", systemImage: "arrow.uturn.backward") }
             } else {
                 Button {
                     env.markEpisodesWatched([episode.id])
-                } label: { Label("Markera som sedd", systemImage: "checkmark.circle") }
+                } label: { Label("Mark as Watched", systemImage: "checkmark.circle") }
             }
         }
-        .accessibilityLabel("\(episode.code), \(episode.title)\(watched ? ", sedd" : "")")
+        .accessibilityLabel("\(episode.code), \(episode.title)\(watched ? ", watched" : "")")
     }
 }
 

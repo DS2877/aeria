@@ -40,7 +40,7 @@ struct ChannelBanner: View {
                 Text(info.channelName)
                     .font(.dsCardTitle)
                     .foregroundStyle(.white)
-                Text(info.nowPlaying.map { "Nu: \($0)" } ?? info.category)
+                Text(info.nowPlaying.map { "Now: \($0)" } ?? info.category)
                     .font(.dsCaption)
                     .foregroundStyle(.white.opacity(0.7))
             }
@@ -74,7 +74,7 @@ struct ChannelZapPanel: View {
             Palette.canvas.opacity(0.96).ignoresSafeArea()
 
             VStack(alignment: .leading, spacing: Metrics.space3) {
-                Text("Kanaler")
+                Text("Channels")
                     .font(.dsTitle)
                     .foregroundStyle(Palette.textPrimary)
                     .padding(.horizontal, Metrics.screenMargin)
@@ -134,7 +134,7 @@ struct ChannelZapPanel: View {
             }
         }
         .buttonStyle(RowButtonStyle())
-        .accessibilityLabel(channel.name + (nowByID[channel.id].map { ", sänds nu: \($0)" } ?? ""))
+        .accessibilityLabel(channel.name + (nowByID[channel.id].map { ", now playing \($0)" } ?? ""))
         .accessibilityAddTraits(channel.id == lineup.currentID ? [.isButton, .isSelected] : .isButton)
     }
 }
@@ -186,7 +186,7 @@ struct InfoPanelChannels: View {
                 .font(.dsCaption)
                 .foregroundStyle(Palette.textSecondary)
                 .lineLimit(1)
-            Text(current ? "TITTAR" : " ")
+            Text(current ? "WATCHING" : " ")
                 .font(.dsTag)
                 .tracking(Metrics.eyebrowTracking)
                 .foregroundStyle(Palette.accent)

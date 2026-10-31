@@ -19,33 +19,33 @@ public enum HomeRowKind: String, Codable, CaseIterable, Sendable, Identifiable {
 
     public var title: String {
         switch self {
-        case .continueWatching:  return "Fortsätt titta"
-        case .myList:            return "Min lista"
-        case .liveNow:           return "Direkt nu"
-        case .tonight:           return "Ikväll"
-        case .topRated:          return "Topp 10"
-        case .genres:            return "Genrehyllor"
-        case .recentlyAdded:     return "Senast tillagt"
-        case .inYourLanguages:   return "På dina språk"
-        case .withYourSubtitles: return "Med dina undertexter"
-        case .movies:            return "Filmer"
-        case .series:            return "Serier"
+        case .continueWatching:  return "Continue Watching"
+        case .myList:            return "My List"
+        case .liveNow:           return "Live Now"
+        case .tonight:           return "Tonight"
+        case .topRated:          return "Top Rated"
+        case .genres:            return "Genre Shelves"
+        case .recentlyAdded:     return "Recently Added"
+        case .inYourLanguages:   return "In Your Languages"
+        case .withYourSubtitles: return "With Your Subtitles"
+        case .movies:            return "Movies"
+        case .series:            return "Series"
         }
     }
 
     public var explanation: String {
         switch self {
-        case .continueWatching:  return "Fortsätt där du slutade"
-        case .myList:            return "Allt du har lagt till i Favoriter"
-        case .liveNow:           return "Vad som sänds på dina kanaler"
-        case .tonight:           return "Kommande program ikväll"
-        case .topRated:          return "Högst betygsatta filmerna och serierna i ditt bibliotek"
-        case .genres:            return "En hylla för var och en av dina största genrer"
-        case .recentlyAdded:     return "Det senaste i ditt bibliotek"
-        case .inYourLanguages:   return "Innehåll på de språk du valt"
-        case .withYourSubtitles: return "Titlar med undertexter på ditt språk"
-        case .movies:            return "En hylla med filmer"
-        case .series:            return "En hylla med serier"
+        case .continueWatching:  return "Pick up where you left off"
+        case .myList:            return "Everything you've added to Favorites"
+        case .liveNow:           return "What's on across your channels"
+        case .tonight:           return "Upcoming programmes this evening"
+        case .topRated:          return "The highest-rated films and shows in your library"
+        case .genres:            return "A shelf for each of your biggest genres"
+        case .recentlyAdded:     return "The newest additions to your library"
+        case .inYourLanguages:   return "Content in the languages you chose"
+        case .withYourSubtitles: return "Titles subtitled in your language"
+        case .movies:            return "A shelf of films"
+        case .series:            return "A shelf of shows"
         }
     }
 
@@ -83,19 +83,19 @@ public enum ChannelRegionScope: String, Codable, Sendable, CaseIterable, Identif
 
     public var title: String {
         switch self {
-        case .homeCountry: return "Bara Sverige"
-        case .nordic:      return "Skandinavien"
-        case .european:    return "Europa & engelska"
-        case .all:         return "Allt"
+        case .homeCountry: return "My country only"
+        case .nordic:      return "Scandinavia"
+        case .european:    return "Europe & English"
+        case .all:         return "Everything"
         }
     }
 
     public var note: String {
         switch self {
-        case .homeCountry: return "Svenska kanaler, plus internationella kanaler utan land"
-        case .nordic:      return "Svenska, norska och danska kanaler"
-        case .european:    return "Norden, engelskspråkiga länder och resten av Europa"
-        case .all:         return "Inget filter — alla kanaler i leverantörens lista"
+        case .homeCountry: return "Just channels from your country, plus international feeds"
+        case .nordic:      return "Swedish, Norwegian and Danish channels"
+        case .european:    return "The Nordics, the English-speaking world and the rest of Europe"
+        case .all:         return "No filter — every channel in the provider's list"
         }
     }
 }

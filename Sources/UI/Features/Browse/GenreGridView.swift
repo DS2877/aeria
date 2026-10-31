@@ -31,8 +31,8 @@ struct GenreGridView: View {
                 if cards.isEmpty, isLoading {
                     LibraryLoadingPlaceholder().frame(minHeight: 400)
                 } else if cards.isEmpty {
-                    EmptyStateView(icon: "film", title: "Inget här",
-                                   message: "Inga titlar i genren \(genre.displayName.lowercased()) i ditt bibliotek just nu.")
+                    EmptyStateView(icon: "film", title: "Nothing here",
+                                   message: "No \(genre.displayName.lowercased()) titles in your library right now.")
                         .frame(minHeight: 400)
                 } else {
                     LazyVGrid(columns: columns, alignment: .leading, spacing: Metrics.gridSpacing) {

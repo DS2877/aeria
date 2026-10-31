@@ -10,7 +10,7 @@ struct LibraryLoadingPlaceholder: View {
         VStack(alignment: .leading, spacing: Metrics.space4) {
             HStack(spacing: Metrics.space2) {
                 ProgressView().controlSize(.small).tint(Palette.textSecondary)
-                Text("Bygger ditt bibliotek…")
+                Text("Building your library…")
                     .font(.dsCaption)
                     .foregroundStyle(Palette.textSecondary)
             }
@@ -27,7 +27,7 @@ struct LibraryLoadingPlaceholder: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, Metrics.screenMargin)
         .padding(.top, Metrics.space4)
-        .accessibilityLabel("Biblioteket laddas fortfarande")
+        .accessibilityLabel("Your library is still loading")
     }
 }
 

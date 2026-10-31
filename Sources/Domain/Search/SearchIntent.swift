@@ -72,19 +72,19 @@ public struct SearchIntent: Equatable, Codable, Sendable {
         var chips: [String] = []
         chips += kinds.map { kind in
             switch kind {
-            case .movie: return "Filmer"
-            case .series: return "Serier"
-            case .liveChannel: return "Kanaler"
+            case .movie: return "Movies"
+            case .series: return "Series"
+            case .liveChannel: return "Live TV"
             }
         }
         chips += genres.map(\.displayName)
-        chips += audioLanguages.map { "Tal: \($0.displayName)" }
-        chips += subtitleLanguages.map { "Text: \($0.displayName)" }
+        chips += audioLanguages.map { "\($0.displayName) audio" }
+        chips += subtitleLanguages.map { "\($0.displayName) subtitles" }
         if let minYear, let maxYear { chips.append("\(minYear)–\(maxYear)") }
-        else if let minYear { chips.append("Efter \(minYear - 1)") }
-        else if let maxYear { chips.append("Före \(maxYear + 1)") }
+        else if let minYear { chips.append("After \(minYear - 1)") }
+        else if let maxYear { chips.append("Before \(maxYear + 1)") }
         if let maxDurationMinutes {
-            chips.append("Under \(maxDurationMinutes / 60 > 0 ? "\(maxDurationMinutes / 60) tim" : "\(maxDurationMinutes) min")")
+            chips.append("Under \(maxDurationMinutes / 60 > 0 ? "\(maxDurationMinutes / 60)h" : "\(maxDurationMinutes)m")")
         }
         if let minQuality, minQuality > .unknown { chips.append(minQuality.shortLabel + "+") }
         return chips

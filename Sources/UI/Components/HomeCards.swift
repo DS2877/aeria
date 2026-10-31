@@ -111,7 +111,7 @@ struct RankedPosterCard: View {
                 isNew: card.isNew,
                 action: action
             )
-            .accessibilityLabel(Text("Nummer \(rank), \(card.title)"))
+            .accessibilityLabel(Text("Number \(rank), \(card.title)"))
         }
     }
 }

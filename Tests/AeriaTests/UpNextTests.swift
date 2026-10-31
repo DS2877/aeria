@@ -38,7 +38,7 @@ final class UpNextTests: XCTestCase {
         XCTAssertEqual(points.count, 1)
         XCTAssertEqual(points.first?.kind, .resumeMovie)
         XCTAssertEqual(points.first?.containerID, m.id)
-        XCTAssertEqual(points.first?.secondaryText, "1 tim 12 min kvar") // 60% of 120m
+        XCTAssertEqual(points.first?.secondaryText, "1h 12m left") // 60% of 120m
     }
 
     func testFinishedMovieIsNotAPoint() {
@@ -68,7 +68,7 @@ final class UpNextTests: XCTestCase {
         let points = UpNext.resumePoints(catalog: Catalog(series: [s]), progress: [p])
         XCTAssertEqual(points.first?.kind, .nextEpisode)
         XCTAssertEqual(points.first?.itemID, s2e1.id)
-        XCTAssertEqual(points.first?.secondaryText, "Nästa · S02E01")
+        XCTAssertEqual(points.first?.secondaryText, "Up Next · S02E01")
         XCTAssertEqual(points.first?.fraction, 0)
     }
 

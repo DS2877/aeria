@@ -27,8 +27,8 @@ struct PINPadView: View {
     private var prompt: String {
         if let error { return error }
         switch purpose {
-        case .enter:  return "Ange din fyrsiffriga PIN-kod"
-        case .create: return firstEntry == nil ? "Välj en fyrsiffrig PIN-kod" : "Ange den igen för att bekräfta"
+        case .enter:  return "Enter your 4-digit PIN"
+        case .create: return firstEntry == nil ? "Choose a 4-digit PIN" : "Enter it again to confirm"
         }
     }
 
@@ -52,8 +52,8 @@ struct PINPadView: View {
             }
             .padding(.vertical, Metrics.space2)
             .accessibilityElement()
-            .accessibilityLabel("PIN-kod")
-            .accessibilityValue("\(entry.count) av 4 siffror")
+            .accessibilityLabel("PIN entry")
+            .accessibilityValue("\(entry.count) of 4 digits")
 
             LazyVGrid(columns: columns, spacing: Metrics.space2) {
                 ForEach(1...9, id: \.self) { digit($0) }
@@ -62,7 +62,7 @@ struct PINPadView: View {
                 backspace
             }
 
-            Button("Avbryt", action: onCancel)
+            Button("Cancel", action: onCancel)
                 .buttonStyle(.bordered)
                 .padding(.top, Metrics.space2)
         }
@@ -99,7 +99,7 @@ struct PINPadView: View {
                 .frame(width: 120, height: 120)
         }
         .buttonStyle(.card)
-        .accessibilityLabel("Radera")
+        .accessibilityLabel("Delete")
     }
 
     /// Handle a completed 4-digit entry. The tiny delay lets the 4th dot render
@@ -113,7 +113,7 @@ struct PINPadView: View {
             if verify?(pin) ?? true {
                 onDone(pin)
             } else {
-                error = "Fel PIN-kod. Försök igen."
+                error = "That PIN didn't match. Try again."
                 entry = ""
             }
 
@@ -122,7 +122,7 @@ struct PINPadView: View {
                 if pin == first {
                     onDone(pin)
                 } else {
-                    error = "Koderna matchade inte. Börja om."
+                    error = "Those didn't match. Start again."
                     firstEntry = nil
                     entry = ""
                 }

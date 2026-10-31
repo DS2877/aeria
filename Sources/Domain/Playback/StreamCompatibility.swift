@@ -17,7 +17,7 @@ public enum StreamCompatibility {
         case "http", "https":
             break
         case "rtmp", "rtmps", "rtsp", "mms", "udp", "rtp":
-            return .unsupported(reason: "Kanalen använder ett strömningsprotokoll som Apple TV inte kan spela (\(scheme.uppercased())).")
+            return .unsupported(reason: "This channel uses a streaming protocol Apple TV can't play (\(scheme.uppercased())).")
         default:
             return .unknown
         }
@@ -30,9 +30,9 @@ public enum StreamCompatibility {
         case "m3u8", "m3u", "mp4", "mov", "m4v", "m4a", "mp3", "aac":
             return .supported
         case "ts", "mpegts", "mts", "m2ts":
-            return .unsupported(reason: "Det här är en rå MPEG-TS-ström. Apple TV:s spelare behöver HLS — be din leverantör om HLS-format (.m3u8).")
+            return .unsupported(reason: "This is a raw MPEG-TS stream. Apple TV's player needs HLS — ask your provider for an HLS (.m3u8) output.")
         case "mkv", "avi", "flv", "wmv", "divx", "vob", "rmvb":
-            return .unsupported(reason: "Formatet \(url.pathExtension.uppercased()) stöds inte av Apple TV:s spelare.")
+            return .unsupported(reason: "The \(url.pathExtension.uppercased()) container isn't supported by Apple TV's player.")
         default:
             return .unknown
         }

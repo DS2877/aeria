@@ -129,7 +129,7 @@ public enum UpNext {
                         containerID: series.id,
                         isSeries: true,
                         primaryTitle: series.title,
-                        secondaryText: "Nästa · \(next.code)",
+                        secondaryText: "Up Next · \(next.code)",
                         artworkURL: next.stillURL ?? series.posterURL,
                         fraction: 0,
                         lastWatched: entry.updatedAt
@@ -143,11 +143,11 @@ public enum UpNext {
 
     static func remainingText(fraction: Double, totalMinutes: Int?) -> String {
         guard let totalMinutes, totalMinutes > 0 else {
-            return "\(Int((fraction * 100).rounded())) % sett"
+            return "\(Int((fraction * 100).rounded()))% watched"
         }
         let left = Int((Double(totalMinutes) * (1 - fraction)).rounded())
-        if left <= 0 { return "Snart slut" }
-        if left < 60 { return "\(left) min kvar" }
-        return "\(left / 60) tim \(left % 60) min kvar"
+        if left <= 0 { return "Almost done" }
+        if left < 60 { return "\(left)m left" }
+        return "\(left / 60)h \(left % 60)m left"
     }
 }

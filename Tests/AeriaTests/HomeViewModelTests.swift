@@ -59,7 +59,7 @@ final class HomeViewModelTests: XCTestCase {
             recentChannelIDs: [b.id, a.id], now: .now
         )
         let row = content.rows.first { $0.id == "recent-channels" }
-        XCTAssertEqual(row?.title, "Senast tittade kanaler")
+        XCTAssertEqual(row?.title, "Recently Watched")
         XCTAssertEqual(row?.cards.map(\.title), ["TV4", "SVT1"])
     }
 
@@ -91,7 +91,7 @@ final class HomeViewModelTests: XCTestCase {
             favoriteIDs: [b.id, sID, a.id]
         )
         let row = content.rows.first { $0.id == HomeRowKind.myList.rawValue }
-        XCTAssertEqual(row?.title, "Min lista")
+        XCTAssertEqual(row?.title, "My List")
         XCTAssertEqual(row?.cards.map(\.title), ["Bravo", "Charlie", "Alpha"])
     }
 
@@ -116,7 +116,7 @@ final class HomeViewModelTests: XCTestCase {
         )
         let because = content.rows.first { $0.id == "because-\(watched.id.rawValue)" }
         XCTAssertNotNil(because)
-        XCTAssertEqual(because?.title, "Eftersom du såg Seed")
+        XCTAssertEqual(because?.title, "Because You Watched Seed")
         XCTAssertFalse(because?.cards.contains { $0.id == watched.id } ?? true)
     }
 
@@ -137,7 +137,7 @@ final class HomeViewModelTests: XCTestCase {
         let becauseRows = content.rows.filter { $0.id.hasPrefix("because-") }
         XCTAssertEqual(becauseRows.count, 2)
         // Most recently watched anchors its row first.
-        XCTAssertEqual(becauseRows.first?.title, "Eftersom du såg Seed Two")
-        XCTAssertEqual(becauseRows.last?.title, "Eftersom du såg Seed One")
+        XCTAssertEqual(becauseRows.first?.title, "Because You Watched Seed Two")
+        XCTAssertEqual(becauseRows.last?.title, "Because You Watched Seed One")
     }
 }

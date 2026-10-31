@@ -36,8 +36,8 @@ struct HistoryView: View {
                 } else if groups.isEmpty {
                     EmptyStateView(
                         icon: "clock.arrow.circlepath",
-                        title: "Inget sett än",
-                        message: "Filmer och avsnitt du spelar hamnar här, så att du kan fortsätta var som helst i appen."
+                        title: "Nothing watched yet",
+                        message: "Films and episodes you play show up here, so you can pick them back up on any screen."
                     )
                 } else {
                     ScrollView {
@@ -93,23 +93,23 @@ struct HistoryView: View {
 
     private var header: some View {
         HStack {
-            Text("Historik").font(.dsTitle).accessibilityAddTraits(.isHeader)
+            Text("History").font(.dsTitle).accessibilityAddTraits(.isHeader)
             Spacer()
             Button(role: .destructive) { confirmClear = true } label: {
-                Label("Rensa allt", systemImage: "trash")
+                Label("Clear All", systemImage: "trash")
             }
             .buttonStyle(.bordered)
         }
         .padding(.horizontal, Metrics.screenMargin)
         .padding(.top, Metrics.space4)
-        .alert("Rensa tittarhistoriken?", isPresented: $confirmClear) {
-            Button("Rensa", role: .destructive) {
+        .alert("Clear watch history?", isPresented: $confirmClear) {
+            Button("Clear", role: .destructive) {
                 env.watchProgress.clearAll()
                 Task { await reload() }
             }
-            Button("Avbryt", role: .cancel) {}
+            Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Alla återupptagningspunkter och raden Fortsätt titta tas bort. Favoriter och leverantör påverkas inte.")
+            Text("This removes every resume point and the Continue Watching row. Favorites and your provider are untouched.")
         }
     }
 
@@ -148,8 +148,8 @@ struct HistoryView: View {
         }
 
         groups = [
-            HistoryGroup(id: "Påbörjat", rows: inProgress),
-            HistoryGroup(id: "Sett", rows: watched),
+            HistoryGroup(id: "In Progress", rows: inProgress),
+            HistoryGroup(id: "Watched", rows: watched),
         ].filter { !$0.rows.isEmpty }
     }
 
@@ -215,7 +215,7 @@ private struct HistoryRowView: View {
                         .foregroundStyle(Palette.textTertiary)
                         .lineLimit(1)
                     if row.finished {
-                        Label("Sett", systemImage: "checkmark.circle.fill")
+                        Label("Watched", systemImage: "checkmark.circle.fill")
                             .font(.dsTag)
                             .foregroundStyle(Palette.accent)
                     } else {
@@ -231,14 +231,14 @@ private struct HistoryRowView: View {
         .buttonStyle(.card)
         .contextMenu {
             if !row.finished {
-                Button(action: onResume) { Label("Återuppta", systemImage: "play.fill") }
+                Button(action: onResume) { Label("Resume", systemImage: "play.fill") }
             }
-            Button(action: onOpen) { Label("Gå till \(row.title)", systemImage: "info.circle") }
+            Button(action: onOpen) { Label("Go to \(row.title)", systemImage: "info.circle") }
             Button(role: .destructive, action: onRemove) {
-                Label("Ta bort från historiken", systemImage: "trash")
+                Label("Remove from History", systemImage: "trash")
             }
         }
         .accessibilityLabel("\(row.title), \(row.subtitle)")
-        .accessibilityHint(row.finished ? "Öppnar detaljer" : "Fortsätter uppspelningen. Håll inne för fler val.")
+        .accessibilityHint(row.finished ? "Opens details" : "Resumes playback. Press and hold for more.")
     }
 }

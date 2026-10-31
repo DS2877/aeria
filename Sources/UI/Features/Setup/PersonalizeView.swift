@@ -43,12 +43,12 @@ struct PersonalizeView: View {
                     header
 
                     if audioLanguages.isEmpty {
-                        PersonalizeSection("Dina språk", nil) {
-                            Text("Vi känner av språken i ditt bibliotek när det har lästs in. Du kan ändra dem i Inställningar när som helst.")
+                        PersonalizeSection("Your languages", nil) {
+                            Text("We'll detect the languages in your library as it finishes scanning. You can set these in Settings any time.")
                                 .font(.dsBody).foregroundStyle(Palette.textSecondary)
                         }
                     } else {
-                        PersonalizeSection("Dina språk", "Innehåll på de här språken får en egen rad på Hem och prioriteras överallt.") {
+                        PersonalizeSection("Your languages", "Content in these languages gets its own row on Home and is prioritised everywhere.") {
                             LazyVGrid(columns: choiceColumns, alignment: .leading, spacing: Metrics.space2) {
                                 ForEach(audioLanguages, id: \.self) { lang in
                                     ChoiceCard(title: lang.displayName,
@@ -61,7 +61,7 @@ struct PersonalizeView: View {
                     }
 
                     if !subtitleLanguages.isEmpty {
-                        PersonalizeSection("Undertextspråk", "Används för raden med dina undertexter och som förvald textning.") {
+                        PersonalizeSection("Subtitle language", "Used for the “With Your Subtitles” row and as the default subtitle track.") {
                             LazyVGrid(columns: choiceColumns, alignment: .leading, spacing: Metrics.space2) {
                                 ForEach(subtitleLanguages, id: \.self) { lang in
                                     ChoiceCard(title: lang.displayName,
@@ -74,7 +74,7 @@ struct PersonalizeView: View {
                         }
                     }
 
-                    PersonalizeSection("Live-TV-kanaler", "Vilka kanaler som visas i Live-TV, TV-guiden och kanalraderna på Hem.") {
+                    PersonalizeSection("Live TV channels", "Which channels appear in Live TV, the Guide and the Home live rows.") {
                         LazyVGrid(columns: choiceColumns, alignment: .leading, spacing: Metrics.space2) {
                             ForEach(ChannelRegionScope.offered) { option in
                                 ChoiceCard(title: option.title,
@@ -87,32 +87,32 @@ struct PersonalizeView: View {
                             .font(.dsCaption).foregroundStyle(Palette.textTertiary)
                     }
 
-                    PersonalizeSection("Uppspelning & innehåll", nil) {
+                    PersonalizeSection("Playback & content", nil) {
                         VStack(spacing: Metrics.space2) {
                             OptionRow(icon: "eye.slash",
-                                      title: "Dölj vuxenkategorier",
-                                      note: "Håller vuxenmärkta kanaler och titlar borta från Hem, bläddring och sök.",
+                                      title: "Hide adult categories",
+                                      note: "Keeps adult-flagged channels and titles out of Home, browsing and search.",
                                       isOn: working.hideAdultContent) { toggleHideAdult() }
                             OptionRow(icon: "lock.shield",
-                                      title: "PIN-kod för föräldrar",
+                                      title: "Parental PIN",
                                       note: env.parental.isEnabled
-                                          ? "En fyrsiffrig PIN-kod krävs innan vuxeninnehåll kan visas."
-                                          : "Välj en fyrsiffrig PIN-kod så att vuxenkategorier inte kan slås på utan den.",
+                                          ? "A 4-digit PIN is required before adult content can be shown."
+                                          : "Set a 4-digit PIN so adult categories can't be switched on without it.",
                                       isOn: env.parental.isEnabled) {
                                 padRequest = env.parental.isEnabled ? .removePIN : .createPIN
                             }
                             OptionRow(icon: "play.rectangle.on.rectangle",
-                                      title: "Spela nästa avsnitt automatiskt",
-                                      note: "När ett avsnitt tar slut startar nästa efter en kort nedräkning.",
+                                      title: "Autoplay next episode",
+                                      note: "When an episode finishes, the next one starts automatically.",
                                       isOn: working.autoPlayNextEpisode) { working.autoPlayNextEpisode.toggle() }
                             OptionRow(icon: "sparkles",
-                                      title: "AI-stödd sökning",
-                                      note: "Vid oklara sökningar skickas bara dina ord och bibliotekets genrer/språk — aldrig inloggning, länkar eller historik.",
+                                      title: "AI-assisted search",
+                                      note: "For vague searches, sends only your words and your library's genre/language list — never credentials, links, or history.",
                                       isOn: working.aiAssistedSearch) { working.aiAssistedSearch.toggle() }
                         }
                     }
 
-                    PersonalizeSection("Rader på Hem", "Slå på eller av rader — de visas i den här ordningen.") {
+                    PersonalizeSection("Home screen rows", "Turn rows on or off — they appear in this order.") {
                         VStack(spacing: Metrics.space2) {
                             ForEach(HomeRowKind.allCases) { row in
                                 OptionRow(icon: nil,
@@ -135,16 +135,16 @@ struct PersonalizeView: View {
         .fullScreenCover(item: $padRequest) { request in
             switch request {
             case .unlockAdult:
-                PINPadView(purpose: .enter, heading: "Visa vuxeninnehåll",
+                PINPadView(purpose: .enter, heading: "Show adult content",
                            verify: { env.parental.verify($0) },
                            onDone: { _ in working.hideAdultContent = false; padRequest = nil },
                            onCancel: { padRequest = nil })
             case .createPIN:
-                PINPadView(purpose: .create, heading: "Skapa en PIN-kod",
+                PINPadView(purpose: .create, heading: "Create a Parental PIN",
                            onDone: { pin in env.parental.setPIN(pin); padRequest = nil },
                            onCancel: { padRequest = nil })
             case .removePIN:
-                PINPadView(purpose: .enter, heading: "Ange PIN-koden för att ta bort den",
+                PINPadView(purpose: .enter, heading: "Enter PIN to remove it",
                            verify: { env.parental.verify($0) },
                            onDone: { pin in _ = env.parental.disable(currentPIN: pin); padRequest = nil },
                            onCancel: { padRequest = nil })
@@ -169,9 +169,9 @@ struct PersonalizeView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: Metrics.space1) {
-            Text(mode == .onboarding ? "Gör den till din" : "Anpassa")
+            Text(mode == .onboarding ? "Make it yours" : "Personalize")
                 .font(.dsHero)
-            Text("Några snabba val så att appen visar det som är viktigt för dig. Allt kan ändras senare i Inställningar.")
+            Text("A few quick choices so the app shows you what matters. Everything here can be changed later in Settings.")
                 .font(.dsBody)
                 .foregroundStyle(Palette.textSecondary)
         }
@@ -180,7 +180,7 @@ struct PersonalizeView: View {
     private var footer: some View {
         HStack(spacing: Metrics.space2) {
             if mode == .settings {
-                Button("Avbryt") { dismiss() }
+                Button("Cancel") { dismiss() }
                     .buttonStyle(SecondaryButtonStyle())
             }
             Button {
@@ -191,7 +191,7 @@ struct PersonalizeView: View {
                 onDone()
                 if mode == .settings { dismiss() }
             } label: {
-                Text(mode == .onboarding ? "Slutför" : "Spara ändringar")
+                Text(mode == .onboarding ? "Finish setup" : "Save changes")
             }
             .buttonStyle(PrimaryButtonStyle())
         }
@@ -304,7 +304,7 @@ private struct OptionRow: View {
         }
         .buttonStyle(RowButtonStyle())
         .accessibilityLabel(title)
-        .accessibilityValue(isOn ? "På" : "Av")
+        .accessibilityValue(isOn ? "On" : "Off")
         .accessibilityAddTraits(.isButton)
     }
 }
@@ -312,7 +312,7 @@ private struct OptionRow: View {
 private struct StatePill: View {
     let isOn: Bool
     var body: some View {
-        Text(isOn ? "På" : "Av")
+        Text(isOn ? "On" : "Off")
             .font(.dsTag)
             .foregroundStyle(isOn ? Palette.canvas : Palette.textSecondary)
             .padding(.horizontal, Metrics.space2)
