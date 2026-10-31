@@ -116,6 +116,20 @@ public final class CatalogDatabase: @unchecked Sendable {
         public static let facetAudioLanguages = "facet_audio_langs"
         public static let facetSubLanguages = "facet_sub_langs"
         public static let facetChannelCategories = "facet_channel_cats"
+
+        /// Home genre-shelf tallies, one per VOD scope (adult × region) — the
+        /// only two scope flags that touch movies / series. Lines of
+        /// "genre<TAB>count", most prevalent first.
+        public static func genreTally(_ scope: Scope) -> String {
+            "genre_tally.\(scope.showAdult ? 1 : 0)\(scope.allRegions ? 1 : 0)"
+        }
+
+        /// Every genre-tally key, for invalidation.
+        public static var genreTallyKeys: [String] {
+            [true, false].flatMap { adult in
+                [true, false].map { regions in genreTally(Scope(showAdult: adult, allRegions: regions)) }
+            }
+        }
     }
 
     public func metaValue(_ key: String) async throws -> String? {
@@ -368,6 +382,17 @@ public final class CatalogDatabase: @unchecked Sendable {
             let subs = try langCodes("sub_langs")
             let categories = try conn.query("SELECT DISTINCT category FROM channel ORDER BY category") { $0.string(0) }
 
+            // Home genre shelves read these on every full rebuild; the live
+            // query is a double GROUP BY join, so do it once per import here.
+            var tallies: [(key: String, lines: [String])] = []
+            for adult in [true, false] {
+                for regions in [true, false] {
+                    let scope = Scope(showAdult: adult, allRegions: regions)
+                    let lines = try Self.genreTallyRows(conn, scope).map { "\($0.rawGenre)\t\($0.tally)" }
+                    tallies.append((key: MetaKey.genreTally(scope), lines: lines))
+                }
+            }
+
             func setList(_ key: String, _ values: [String]) throws {
                 _ = try conn.run(
                     "INSERT INTO meta(key, value) VALUES(?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
@@ -379,6 +404,7 @@ public final class CatalogDatabase: @unchecked Sendable {
                 try setList(MetaKey.facetAudioLanguages, audio)
                 try setList(MetaKey.facetSubLanguages, subs)
                 try setList(MetaKey.facetChannelCategories, categories)
+                for tally in tallies { try setList(tally.key, tally.lines) }
             }
         }
     }
@@ -664,23 +690,41 @@ public final class CatalogDatabase: @unchecked Sendable {
         public let count: Int
     }
 
+    /// Genres by how many titles carry them, most first. Served from the
+    /// per-import `meta` cache (see `refreshFacetCache`); falls back to the
+    /// live query when the cache is missing (mid-import, or a library imported
+    /// before the cache existed).
     public func genreCounts(_ scope: Scope) async throws -> [GenreTally] {
-        try await read { conn in
-            let (clause, params) = Self.scopeClause(scope)
-            let rows = try conn.query("""
-            SELECT genre, sum(n) AS total FROM (
-                SELECT g.genre AS genre, count(*) AS n FROM movie_genre g
-                    JOIN movie m ON m.id = g.movie_id WHERE \(clause) GROUP BY g.genre
-                UNION ALL
-                SELECT g.genre AS genre, count(*) AS n FROM series_genre g
-                    JOIN series s ON s.id = g.series_id WHERE \(clause) GROUP BY g.genre
-            ) GROUP BY genre ORDER BY total DESC
-            """, params + params) { row in (rawGenre: row.string(0), tally: row.int(1)) }
-            return rows.compactMap { row -> GenreTally? in
+        if let cached = try await metaList(MetaKey.genreTally(scope)) {
+            return cached.compactMap { line -> GenreTally? in
+                let parts = line.split(separator: "\t", maxSplits: 1)
+                guard parts.count == 2,
+                      let genre = Genre(rawValue: String(parts[0])),
+                      let count = Int(parts[1]) else { return nil }
+                return GenreTally(genre: genre, count: count)
+            }
+        }
+        return try await read { conn in
+            try Self.genreTallyRows(conn, scope).compactMap { row -> GenreTally? in
                 guard let genre = Genre(rawValue: row.rawGenre) else { return nil }
                 return GenreTally(genre: genre, count: row.tally)
             }
         }
+    }
+
+    /// The live genre tally for `scope` — shared by `genreCounts` (fallback)
+    /// and `refreshFacetCache` (which caches it).
+    private static func genreTallyRows(_ conn: SQLiteConnection, _ scope: Scope) throws -> [(rawGenre: String, tally: Int)] {
+        let (clause, params) = scopeClause(scope)
+        return try conn.query("""
+        SELECT genre, sum(n) AS total FROM (
+            SELECT g.genre AS genre, count(*) AS n FROM movie_genre g
+                JOIN movie m ON m.id = g.movie_id WHERE \(clause) GROUP BY g.genre
+            UNION ALL
+            SELECT g.genre AS genre, count(*) AS n FROM series_genre g
+                JOIN series s ON s.id = g.series_id WHERE \(clause) GROUP BY g.genre
+        ) GROUP BY genre ORDER BY total DESC
+        """, params + params) { row in (rawGenre: row.string(0), tally: row.int(1)) }
     }
 
     public func moviesInGenre(_ genre: Genre, _ scope: Scope, limit: Int) async throws -> [Movie] {
@@ -997,7 +1041,7 @@ public final class CatalogDatabase: @unchecked Sendable {
                     try conn.execute("DELETE FROM \(table)")
                 }
                 for key in [MetaKey.facetGenres, MetaKey.facetAudioLanguages,
-                            MetaKey.facetSubLanguages, MetaKey.facetChannelCategories] {
+                            MetaKey.facetSubLanguages, MetaKey.facetChannelCategories] + MetaKey.genreTallyKeys {
                     _ = try conn.run("DELETE FROM meta WHERE key = ?", [.text(key)])
                 }
             }

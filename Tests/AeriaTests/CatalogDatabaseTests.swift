@@ -213,6 +213,42 @@ final class CatalogDatabaseTests: XCTestCase {
         XCTAssertEqual(categories, ["All", "General"])
     }
 
+    func testGenreTallyIsCachedPerScopeAtImportEnd() async throws {
+        try await database.insertMovies([
+            movie("m1", "One", genres: [.horror]),
+            movie("m2", "Two", genres: [.horror]),
+            movie("m3", "Three", genres: [.comedy]),
+            movie("m4", "Adult", genres: [.comedy, .drama], adult: true),
+        ])
+        let open = CatalogDatabase.Scope(showAdult: true, allRegions: true)
+        let noAdult = CatalogDatabase.Scope(showAdult: false, allRegions: true)
+
+        // No cache yet → live query.
+        let live = try await database.genreCounts(open)
+        XCTAssertEqual(live.first?.genre, .horror)
+
+        try await database.refreshFacetCache()
+
+        // Cache matches the live query for each scope it covers.
+        let cachedOpen = try await database.genreCounts(open)
+        XCTAssertEqual(cachedOpen.map(\.genre), live.map(\.genre))
+        XCTAssertEqual(cachedOpen.map(\.count), live.map(\.count))
+        let cachedNoAdult = try await database.genreCounts(noAdult)
+        XCTAssertEqual(Dictionary(uniqueKeysWithValues: cachedNoAdult.map { ($0.genre, $0.count) }),
+                       [.horror: 2, .comedy: 1])
+
+        // Rows written after the refresh aren't seen until the next one —
+        // proves Home reads the cache, not the tables.
+        try await database.insertMovies([movie("m5", "Five", genres: [.western])])
+        let stillCached = try await database.genreCounts(open)
+        XCTAssertFalse(stillCached.contains { $0.genre == .western })
+
+        // A fresh import wipes the cache, so the live query takes over again.
+        try await database.clearCatalog()
+        let afterClear = try await database.genreCounts(open)
+        XCTAssertTrue(afterClear.isEmpty)
+    }
+
     // MARK: - Channels
 
     func testChannelForYouOrder() async throws {

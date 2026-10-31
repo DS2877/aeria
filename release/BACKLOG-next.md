@@ -43,6 +43,24 @@ build. Prefer small, additive, self-contained commits.
   - `4078494` "Because You Watched" up to 2 anchors (`mostRecentWatchedAnchors`,
     `watchedAnchors`; new test `testMakeContentProducesUpToTwoBecauseYouWatchedRows`)
 
+### 1a. Cloud session 2026-10-31 (Claude Code on the web)
+
+Work moved to branch `claude/laughing-sagan-ysfi19` (= `import-progress-checklist`
++ the commits below). To advance `main` after a green build, push **this** branch
+instead: `git push origin origin/claude/laughing-sagan-ysfi19:main`.
+
+- Desk-checked every Wave 1 call site against the real APIs (`channels(ids:)`,
+  `epgIndex` → `EPGIndex.nowPlaying`, `FavoritesStore.all()`, `Favorite.kind/itemID`,
+  `Section(rawValue:)`, test fixtures). Found no compile errors — still unbuilt.
+- Wave 1 follow-ups: shared `HomeViewModel.becauseYouWatchedAnchorLimit`;
+  Live TV Favorites mode defers the category query (`categoriesStale`);
+  copy → "Favorites"; sidebar restore never reopens into Settings.
+- Perf #1 done: genre tallies cached per scope in `meta`
+  (`MetaKey.genreTally(scope)`, 4 keys, written in `refreshFacetCache`, cleared by
+  `clearCatalog`; `genreCounts` falls back to the live query when missing).
+  New test `testGenreTallyIsCachedPerScopeAtImportEnd`. Existing libraries get the
+  cache on their next import/refresh — no schema bump.
+
 ## 2. Unverified on device — verify before building on top of it
 
 Ask the user to run the build, `⌘U`, and report. Likely compile-risk spots listed
@@ -78,35 +96,33 @@ first because none of it has seen a compiler:
 - **Two parallel anchor-resolution paths for "Because You Watched"**:
   `HomeViewModel.watchedAnchors` (actor side, decides which DB rows to prefetch)
   and `mostRecentWatchedAnchors` (pure, inside `makeContent`). They can drift;
-  both hard-code `limit: 2` — introduce one shared constant.
+  both now use `becauseYouWatchedAnchorLimit` (done), but the resolution logic
+  itself is still duplicated.
 - `InMemoryCatalogRepository` intentionally defaults `regionLimited=false` and
   `channelCountries=nil` (tests see the raw catalog); `SQLiteCatalogRepository`
   defaults are the shipping behaviour. Don't assume parity.
 - Live TV Favourites: fetched by id, so it **bypasses** `channelCountries` (a
   hearted foreign channel still shows — probably desired, but undecided). It also
   sorts client-side (`.number` = `sortIndex`, `.nameAsc` = name) without the
-  home-region tiering of the normal "For you" sort. `scheduleReload()` still
-  refetches categories needlessly while favourites mode is on.
-- Copy inconsistency: chip says "★ Favourites" (British); sidebar/Settings say
-  "Favorites". Pick one (app is en-US in ASC → "Favorites").
+  home-region tiering of the normal "For you" sort. (Category refetch in
+  favourites mode: fixed.)
 - Channel-number chip only on Live TV browse. Home "Live Now" `ChannelCard`s don't
   get it (`HomeCard` has no number). `sortIndex == 0` means "no number" and hides
   the chip.
 - Sidebar restore can reopen into `.settings`/`.favorites`; `.defaultFocus($focusedItem, .home)`
-  still points at Home regardless. Check feel on device; may want to exclude Settings.
+  still points at Home regardless. Settings is now excluded (falls back to Home);
+  check the feel of the rest on device.
 - `PosterCard(route:)` refactor (review finding, skipped): `GenreGridView.poster`
   duplicates card construction.
 - `GenreGridView` pages movies+series with the same page index (60 movies, 60
   series, 60 movies…) — a merged sort would be tidier.
-- `Theme.swift` — `pinnedHeaderStyle()` was removed; make sure nothing references it.
 - Watch progress / favourites JSON-encode the whole list to `UserDefaults` on every
   write — fine now, move to a `user_state` SQLite table if history grows.
 
 ## 4. Backlog, prioritised
 
 ### Performance
-1. `[M]` Precompute Home genre-shelf tallies into `meta` (like the facet cache);
-   `genreCounts` is a double `GROUP BY` join on every full Home rebuild.
+1. ~~`[M]` Precompute Home genre-shelf tallies into `meta`~~ — done (see §1a).
 2. `[M]` **Drop foreign VOD rows at import** instead of flagging `is_relevant=0`
    (smaller DB/indexes). Cost: "show all regions" needs a re-import. Decide with
    the user first — Sweden-first now makes the trade more defensible; live channels
