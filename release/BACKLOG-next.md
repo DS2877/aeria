@@ -16,9 +16,15 @@ build. Prefer small, additive, self-contained commits.
 - Never commit any password or token. (A specific old Mac password is on the
   user's blocklist in the Claude memory files — do not write it into the repo.)
 - IPTV credentials / API keys: Keychain only, never logged, never committed.
-- `main` = what Xcode Cloud builds. Only advance it after the user confirms a
-  green local build: `git push origin origin/import-progress-checklist:main`
-  (do not `git checkout main` — it conflicts with the skip-worktree token file).
+- `main` = what Xcode Cloud builds → TestFlight. **The user delegated this
+  (2026-10-31): advance `main` yourself once the GitHub Actions run for the
+  branch is green** — `git push origin <branch-sha>:main` (fast-forward only).
+  Don't wait for a local build; the user does zero manual steps and tests via
+  TestFlight on the Apple TV. (On the user's Mac, never `git checkout main` —
+  it conflicts with the skip-worktree token file.)
+- Product scope: **Swedish market only** (2026-10-31). Foreign content is
+  dropped at import by `RelevanceFilter` / `CatalogWriter`; bump
+  `RelevanceFilter.rulesVersion` whenever the rules change.
 - Commit trailer: `Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>`.
 - Multi-profile is permanently out of scope.
 - Nested `struct Body: View` inside a `ButtonStyle` breaks compilation (collides
