@@ -53,16 +53,28 @@ public struct HomeCard: Identifiable, Sendable, Codable {
 }
 
 public struct HomeRow: Identifiable, Sendable, Codable {
+    /// How a row's cards are drawn.
+    public enum Style: String, Sendable, Codable {
+        /// 2:3 posters (channels draw as wide logo cards regardless).
+        case poster
+        /// 16:9 stills with progress — Continue Watching.
+        case landscape
+        /// Posters with a big rank numeral beside each — the Top 10.
+        case ranked
+    }
+
     public let id: String
     public let title: String
     public let subtitle: String?
     public let cards: [HomeCard]
+    public let style: Style
 
-    public init(id: String, title: String, subtitle: String?, cards: [HomeCard]) {
+    public init(id: String, title: String, subtitle: String?, cards: [HomeCard], style: Style = .poster) {
         self.id = id
         self.title = title
         self.subtitle = subtitle
         self.cards = cards
+        self.style = style
     }
 }
 

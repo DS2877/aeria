@@ -307,6 +307,19 @@ public actor MetadataService {
 
     /// All known TMDB ratings, keyed by `CatalogID.rawValue`. For the Home
     /// "Top Rated" row — cheap, reads the in-memory map.
+    #if DEBUG
+    /// UI-test screenshots only: fake TMDB ratings so the rating-driven rows
+    /// (Top 10, hero ordering) appear without a network key. In-memory —
+    /// never saved.
+    public func debugSeedRatings(_ ratings: [CatalogID: Double]) {
+        loadFromDiskIfNeeded()
+        for (id, rating) in ratings {
+            byID[id.rawValue] = EnrichedMetadata(tmdbID: 1, posterURL: nil, backdropURL: nil,
+                                                 overview: nil, rating: rating, fetchedAt: Date())
+        }
+    }
+    #endif
+
     public func ratingsSnapshot() -> [String: Double] {
         loadFromDiskIfNeeded()
         var out: [String: Double] = [:]

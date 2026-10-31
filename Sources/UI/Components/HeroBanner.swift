@@ -15,11 +15,21 @@ struct HeroBanner: View {
 
     @State private var index = 0
     @State private var overview: String?
+    /// Drives the slow "Ken Burns" push-in on the backdrop. Reset without
+    /// animation on every new hero, then eased toward 1 over the hold time —
+    /// a scale on one already-composited layer, so it costs the GPU nothing
+    /// worth measuring.
+    @State private var drift = false
     @State private var playback: PlaybackItem?
     @FocusState private var focusedControl: Control?
 
     private let interval: Duration = .seconds(9)
-    private let height: CGFloat = 620
+    /// Tall enough to feel cinematic on a 1080-pt canvas while the first
+    /// shelf still peeks up into the bottom fade (`shelfOverlap`).
+    static let height: CGFloat = 800
+    /// How far the first shelf below rides up over the hero's fade.
+    static let shelfOverlap: CGFloat = 170
+    private var height: CGFloat { Self.height }
 
     private var current: HomeCard? {
         guard !heroes.isEmpty else { return nil }
@@ -40,6 +50,7 @@ struct HeroBanner: View {
             .frame(maxWidth: .infinity)
             .clipped()
             .task(id: hero.id) { await resolveOverview(for: hero) }
+            .task(id: hero.id) { await startDrift() }
             .task(id: heroKey) {
                 if index >= heroes.count { index = 0 }
                 await rotate()
@@ -71,6 +82,7 @@ struct HeroBanner: View {
         }
         .frame(height: height)
         .frame(maxWidth: .infinity)
+        .scaleEffect(drift ? 1.07 : 1.0, anchor: .center)
         .clipped()
         .id(hero.id)
         .transition(.opacity)
@@ -155,7 +167,8 @@ struct HeroBanner: View {
             .padding(.top, Metrics.space3)
         }
         .padding(.horizontal, Metrics.screenMargin)
-        .padding(.bottom, Metrics.space5)
+        // Clear the shelf that rides up over the bottom of the banner.
+        .padding(.bottom, Self.shelfOverlap + Metrics.space4)
     }
 
     private var pageDots: some View {
@@ -179,6 +192,18 @@ struct HeroBanner: View {
             for: ref.id, title: ref.title, year: ref.year, isSeries: ref.isSeries
         )
         if let text = meta?.overview { overview = text }
+    }
+
+    private func startDrift() async {
+        guard !reduceMotion else { return }
+        var reset = Transaction()
+        reset.disablesAnimations = true
+        withTransaction(reset) { drift = false }
+        // Let the reset commit as its own frame — set back-to-back, SwiftUI
+        // would coalesce false→true into "no change" and never animate.
+        try? await Task.sleep(for: .milliseconds(60))
+        guard !Task.isCancelled else { return }
+        withAnimation(.linear(duration: 14)) { drift = true }
     }
 
     private func rotate() async {

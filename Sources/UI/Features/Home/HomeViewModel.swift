@@ -329,9 +329,10 @@ public final class HomeViewModel {
         let enabled = Set(prefs.homeRows)
         var rows: [HomeRow] = []
 
-        func add(_ kind: HomeRowKind, _ title: String, _ cards: [HomeCard], subtitle: String? = nil) {
+        func add(_ kind: HomeRowKind, _ title: String, _ cards: [HomeCard], subtitle: String? = nil,
+                 style: HomeRow.Style = .poster) {
             guard enabled.contains(kind), !cards.isEmpty else { return }
-            rows.append(HomeRow(id: kind.rawValue, title: title, subtitle: subtitle, cards: cards))
+            rows.append(HomeRow(id: kind.rawValue, title: title, subtitle: subtitle, cards: cards, style: style))
         }
 
         // Movies sorted by recency once, reused for the shelf + hero.
@@ -342,7 +343,7 @@ public final class HomeViewModel {
         }
 
         let points = resumePoints ?? UpNext.resumePoints(catalog: catalog, progress: progress, limit: 12)
-        add(.continueWatching, "Continue Watching", continueWatchingCards(points))
+        add(.continueWatching, "Continue Watching", continueWatchingCards(points), style: .landscape)
 
         // "My List" — favourited movies + series, in the order they were hearted.
         // Shown regardless of the saved row list (the option post-dates them).
@@ -424,11 +425,11 @@ public final class HomeViewModel {
         let topRated = ratedCards
             .filter { $0.score >= 7.0 }
             .sorted { $0.score > $1.score }
-            .prefix(24)
+            .prefix(10)
             .map(\.card)
         if topRated.count >= 5 {
-            rows.append(HomeRow(id: HomeRowKind.topRated.rawValue, title: "Top Rated",
-                                subtitle: "Highest rated in your library", cards: Array(topRated)))
+            rows.append(HomeRow(id: HomeRowKind.topRated.rawValue, title: "Top 10 in Your Library",
+                                subtitle: "Ranked by TMDB rating", cards: Array(topRated), style: .ranked))
         }
         if let myListRow { rows.append(myListRow) }
         rows.append(contentsOf: becauseRows)
@@ -516,7 +517,17 @@ public final class HomeViewModel {
                 return lhs.added > rhs.added
             }
             .prefix(5)
-            .map(\.card)
+            .map { entry in
+                // Lead the eyebrow with the rating when there is one — it's the
+                // single most persuasive fact about a featured title.
+                guard entry.score > 0 else { return entry.card }
+                let c = entry.card
+                let rating = String(format: "★ %.1f", entry.score)
+                let eyebrow = [rating, c.eyebrow].compactMap { $0 }.filter { !$0.isEmpty }
+                    .joined(separator: " · ")
+                return HomeCard(id: c.id, kind: c.kind, title: c.title, subtitle: c.subtitle,
+                                artworkURL: c.artworkURL, year: c.year, eyebrow: eyebrow)
+            }
 
         let tonight = prefs.isRowEnabled(.tonight)
             ? buildTonight(channels: catalog.channels, epg: epg, now: now) : []

@@ -31,12 +31,21 @@ struct EnrichedArtwork: View {
     /// Called with the TMDB rating (0…10) when one is found.
     var onResolvedRating: ((Double) -> Void)? = nil
 
+    /// Show the TMDB image over the provider's once it resolves. For 16:9
+    /// slots fed a provider *poster* (Continue Watching), a real backdrop
+    /// beats a cropped poster; the provider image still shows meanwhile.
+    var preferEnriched: Bool = false
+
     @State private var fetchedURL: URL?
 
+    private var shownURL: URL? {
+        preferEnriched ? (fetchedURL ?? providerURL) : (providerURL ?? fetchedURL)
+    }
+
     var body: some View {
-        ArtworkView(url: providerURL ?? fetchedURL, title: ref.title, aspect: aspect, style: style, size: size)
+        ArtworkView(url: shownURL, title: ref.title, aspect: aspect, style: style, size: size)
             .task(id: ref) {
-                if providerURL != nil { onResolvedImage?(); return }
+                if providerURL != nil, !preferEnriched { onResolvedImage?(); return }
                 guard fetchedURL == nil else { return }
                 let meta = await env.metadata.metadata(
                     for: ref.id, title: ref.title, year: ref.year, isSeries: ref.isSeries

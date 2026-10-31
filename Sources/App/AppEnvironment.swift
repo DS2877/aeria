@@ -78,7 +78,40 @@ public final class AppEnvironment {
         self.preferences = PreferencesStore()
         self.parental = ParentalControlsStore()
         self.normalizer = Normalizer()
+        #if DEBUG
+        if Self.isScreenshotRun {
+            // Straight into the demo library on Home, past onboarding.
+            providers.setActive(ProviderStore.demoID)
+            preferences.completeOnboarding()
+            UserDefaults.standard.removeObject(forKey: "sidebar.lastSection.v1")
+        }
+        #endif
     }
+
+    #if DEBUG
+    /// Launched by the CI screenshot test (`-AeriaScreenshots`).
+    static var isScreenshotRun: Bool {
+        ProcessInfo.processInfo.arguments.contains("-AeriaScreenshots")
+    }
+
+    /// Give the demo library some history and ratings so every Home row
+    /// (Continue Watching, Top 10, Because You Watched) shows in screenshots.
+    private func seedScreenshotState() async {
+        let movies = await repository.newestMovies(limit: 12)
+        for (i, movie) in movies.prefix(3).enumerated() {
+            let duration = Double((movie.durationMinutes ?? 110) * 60)
+            watchProgress.record(id: movie.id, kind: .movie,
+                                 positionSeconds: duration * [0.35, 0.62, 0.18][i],
+                                 durationSeconds: duration)
+        }
+        let series = await repository.newestSeries(limit: 8)
+        var ratings: [CatalogID: Double] = [:]
+        for (i, movie) in movies.enumerated() { ratings[movie.id] = 8.9 - Double(i) * 0.15 }
+        for (i, show) in series.enumerated() { ratings[show.id] = 8.4 - Double(i) * 0.2 }
+        await metadata.debugSeedRatings(ratings)
+        metadataRevision += 1
+    }
+    #endif
 
     /// Keychain accounts for the optional API keys.
     static let aiKeyAccount = "anthropic.apiKey.v1"
@@ -152,6 +185,9 @@ public final class AppEnvironment {
     public func startUp() async {
         await metadata.setKey(effectiveTMDBKey)
         await bootstrap()
+        #if DEBUG
+        if Self.isScreenshotRun { await seedScreenshotState() }
+        #endif
     }
 
     /// Load the active provider's catalog. If a completed import is already in

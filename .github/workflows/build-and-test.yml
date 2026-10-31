@@ -51,6 +51,28 @@ jobs:
           # Re-derive the real exit status from the log (grep above swallows it).
           grep -q "\*\* TEST SUCCEEDED \*\*" xcodebuild.log
 
+      - name: Capture Home screenshots
+        if: success()
+        continue-on-error: true
+        run: |
+          xcodebuild test \
+            -project Aeria.xcodeproj \
+            -scheme AeriaScreenshots \
+            -destination "id=${{ steps.sim.outputs.udid }}" \
+            -resultBundlePath Screenshots.xcresult \
+            CODE_SIGNING_ALLOWED=NO 2>&1 | tail -30
+          mkdir -p screenshots
+          xcrun xcresulttool export attachments --path Screenshots.xcresult --output-path screenshots || true
+          ls -la screenshots
+
+      - name: Upload screenshots
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: home-screenshots
+          path: screenshots
+          if-no-files-found: ignore
+
       - name: Summarise failures
         if: failure()
         run: |

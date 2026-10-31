@@ -121,7 +121,32 @@ targets:
         GENERATE_INFOPLIST_FILE: YES
         PRODUCT_BUNDLE_IDENTIFIER: com.aeriaplus.appletv.tests
 
+  # Screenshot-only UI tests, run by CI (.github/workflows) to capture Home
+  # with the demo library. Not in the Aeria scheme, so ⌘U and Xcode Cloud
+  # don't pay for launching the app.
+  AeriaUITests:
+    type: bundle.ui-testing
+    platform: tvOS
+    sources:
+      - path: Tests/AeriaUITests
+    dependencies:
+      - target: Aeria
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.aeriaplus.appletv.uitests
+        TEST_TARGET_NAME: Aeria
+
 schemes:
+  AeriaScreenshots:
+    build:
+      targets:
+        Aeria: all
+        AeriaUITests: [test]
+    test:
+      config: Debug
+      targets:
+        - AeriaUITests
   Aeria:
     build:
       targets:

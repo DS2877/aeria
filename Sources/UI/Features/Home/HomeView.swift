@@ -163,7 +163,7 @@ struct HomeView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: Metrics.shelfSpacing) {
                 SkeletonBox(cornerRadius: 0)
-                    .frame(height: 620)
+                    .frame(height: HeroBanner.height - HeroBanner.shelfOverlap)
                     .overlay(alignment: .bottomLeading) {
                         VStack(alignment: .leading, spacing: Metrics.space2) {
                             SkeletonBox(cornerRadius: 8).frame(width: 460, height: 56)
@@ -194,8 +194,10 @@ struct HomeView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     if !model.content.heroes.isEmpty {
+                        // The first shelf rides up into the hero's fade — a
+                        // peek that says "there's more below" without a scroll.
                         HeroBanner(heroes: model.content.heroes) { navigate($0) }
-                            .padding(.bottom, Metrics.space5)
+                            .padding(.bottom, -HeroBanner.shelfOverlap)
                             .focusSection()
                     }
 
@@ -207,7 +209,7 @@ struct HomeView: View {
                         ForEach(model.content.rows) { row in
                             Shelf(title: row.title, subtitle: row.subtitle, items: row.cards,
                                   headerRoute: Self.genre(for: row).map { AppRoute.genre($0) }) { card in
-                                cardView(card)
+                                cardView(card, in: row)
                             }
                         }
                     }
@@ -218,7 +220,49 @@ struct HomeView: View {
     }
 
     @ViewBuilder
-    private func cardView(_ card: HomeCard) -> some View {
+    private func cardView(_ card: HomeCard, in row: HomeRow) -> some View {
+        switch (row.style, card.kind) {
+        case (.landscape, .movie), (.landscape, .series):
+            ResumeCard(card: card, action: { activate(card) })
+                .contextMenu { resumeMenu(for: card) }
+        case (.ranked, .movie), (.ranked, .series):
+            RankedPosterCard(rank: (row.cards.firstIndex { $0.id == card.id } ?? 0) + 1,
+                             card: card, action: { activate(card) })
+        default:
+            standardCard(card)
+        }
+    }
+
+    /// A Continue Watching card plays where you left off; every other card
+    /// opens the detail screen.
+    private func activate(_ card: HomeCard) {
+        if card.resumeItemID != nil {
+            Task { await resume(card) }
+        } else {
+            navigate(card)
+        }
+    }
+
+    @ViewBuilder
+    private func resumeMenu(for card: HomeCard) -> some View {
+        if let itemID = card.resumeItemID {
+            Button { navigate(card) } label: {
+                Label("Go to \(card.title)", systemImage: "info.circle")
+            }
+            Button {
+                environment.markWatched(id: itemID, kind: card.kind == .series ? .series : .movie)
+                Task { await model?.rebuild() }
+            } label: { Label("Mark as Watched", systemImage: "checkmark.circle") }
+
+            Button(role: .destructive) {
+                environment.removeFromContinueWatching(id: itemID)
+                Task { await model?.rebuild() }
+            } label: { Label("Remove", systemImage: "minus.circle") }
+        }
+    }
+
+    @ViewBuilder
+    private func standardCard(_ card: HomeCard) -> some View {
         switch card.kind {
         case .channel:
             ChannelCard(
@@ -238,32 +282,9 @@ struct HomeView: View {
                 badge: card.badge,
                 progress: card.progress,
                 isNew: card.isNew,
-                // A Continue Watching card plays where you left off; every other
-                // card opens the detail screen.
-                action: {
-                    if card.resumeItemID != nil {
-                        Task { await resume(card) }
-                    } else {
-                        navigate(card)
-                    }
-                }
+                action: { activate(card) }
             )
-            .contextMenu {
-                if let itemID = card.resumeItemID {
-                    Button { navigate(card) } label: {
-                        Label("Go to \(card.title)", systemImage: "info.circle")
-                    }
-                    Button {
-                        environment.markWatched(id: itemID, kind: card.kind == .series ? .series : .movie)
-                        Task { await model?.rebuild() }
-                    } label: { Label("Mark as Watched", systemImage: "checkmark.circle") }
-
-                    Button(role: .destructive) {
-                        environment.removeFromContinueWatching(id: itemID)
-                        Task { await model?.rebuild() }
-                    } label: { Label("Remove", systemImage: "minus.circle") }
-                }
-            }
+            .contextMenu { resumeMenu(for: card) }
         }
     }
 
