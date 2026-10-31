@@ -74,17 +74,12 @@ final class HomeScreenshotTests: XCTestCase {
     /// in the guide.
     func testCaptureGuidePreview() {
         let app = XCUIApplication()
-        app.launchArguments += ["-AeriaScreenshots"]
+        // Launch straight into the Guide — no rail walking to go wrong.
+        app.launchArguments += ["-AeriaScreenshots", "-AeriaScreenshotSection", "guide"]
         app.launch()
         sleep(12)
 
         let remote = XCUIRemote.shared
-        remote.press(.left)          // rail, on Home
-        sleep(2)
-        for _ in 0..<3 {             // Search → Live TV → Guide
-            remote.press(.down)
-            sleep(2)
-        }
         remote.press(.right)         // into the guide's first row
         sleep(2)
         snap("19-guide-focused")

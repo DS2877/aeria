@@ -83,7 +83,14 @@ public final class AppEnvironment {
             // Straight into the demo library on Home, past onboarding.
             providers.setActive(ProviderStore.demoID)
             preferences.completeOnboarding()
-            UserDefaults.standard.removeObject(forKey: "sidebar.lastSection.v1")
+            // `-AeriaScreenshotSection guide` opens straight into a section
+            // (the shell restores the last one); default Home.
+            let args = ProcessInfo.processInfo.arguments
+            if let i = args.firstIndex(of: "-AeriaScreenshotSection"), i + 1 < args.count {
+                UserDefaults.standard.set(args[i + 1], forKey: "sidebar.lastSection.v1")
+            } else {
+                UserDefaults.standard.removeObject(forKey: "sidebar.lastSection.v1")
+            }
         }
         #endif
     }
