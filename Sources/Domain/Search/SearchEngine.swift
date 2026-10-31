@@ -12,7 +12,10 @@ public struct SearchEngine: Sendable {
         let filter = CatalogFilter(intent: intent)
         let wantMovies = intent.kinds.isEmpty || intent.kinds.contains(.movie)
         let wantSeries = intent.kinds.isEmpty || intent.kinds.contains(.series)
+        // Channels when asked for, or for any plain text search with no kind
+        // pinned — "SVT1" must find the channel.
         let wantChannels = intent.kinds.contains(.liveChannel)
+            || (intent.kinds.isEmpty && !intent.freeText.isEmpty)
 
         var results: [SearchResult] = []
 
@@ -29,9 +32,10 @@ public struct SearchEngine: Sendable {
             }
         }
         if wantChannels {
-            let needle = intent.freeText.foldedForSearch()
+            let tokens = intent.freeText.foldedForSearch().split(separator: " ")
             for channel in catalog.channels {
-                guard needle.isEmpty || channel.name.foldedForSearch().contains(needle) else { continue }
+                let name = channel.name.foldedForSearch()
+                guard tokens.allSatisfy({ name.contains($0) }) else { continue }
                 results.append(SearchResult(item: .channel(channel),
                                             score: score(title: channel.name, year: nil, intent: intent)))
             }

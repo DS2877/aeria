@@ -98,6 +98,8 @@ public protocol CatalogQuerying: Sendable {
     // MARK: Search
 
     func search(_ intent: SearchIntent, limit: Int) async -> [SearchResult]
+    /// TV-guide programmes whose title matches `text`, on now or later today.
+    func searchProgrammes(text: String, limit: Int) async -> [ProgrammeHit]
     /// The library-derived vocabulary a query parser resolves against.
     func searchVocabulary() async -> SearchVocabulary
 

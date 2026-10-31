@@ -817,12 +817,18 @@ public final class CatalogDatabase: @unchecked Sendable {
     public func channelCandidates(text: String, _ scope: Scope, limit: Int) async throws -> [Channel] {
         try await read { conn in
             let (clause, params) = Self.scopeClause(scope)
-            let needle = text.foldedForSearch()
-            let textClause = needle.isEmpty ? "" : " AND instr(name_fold, ?) > 0"
-            let textParams: [SQLiteValue] = needle.isEmpty ? [] : [.text(needle)]
+            // Every word, any order; within the viewer's channel scope.
+            var clauses = [clause]
+            var allParams = params
+            Self.appendChannelCountry(to: &clauses, params: &allParams, scope: scope)
+            for token in text.foldedForSearch().split(separator: " ") where !token.isEmpty {
+                clauses.append("instr(name_fold, ?) > 0")
+                allParams.append(.text(String(token)))
+            }
             return try conn.query(
-                "SELECT \(Self.channelColumns) FROM channel WHERE \(clause)\(textClause) LIMIT ?",
-                params + textParams + [.integer(Int64(limit))], Self.decodeChannel
+                "SELECT \(Self.channelColumns) FROM channel WHERE \(clauses.joined(separator: " AND ")) " +
+                "ORDER BY region_priority, sort_index LIMIT ?",
+                allParams + [.integer(Int64(limit))], Self.decodeChannel
             )
         }
     }
@@ -922,6 +928,58 @@ public final class CatalogDatabase: @unchecked Sendable {
         }
     }
 
+    /// Programmes whose title contains every word of `text`, airing between
+    /// `window.start` and `window.end`, with a visible channel to watch them on.
+    ///
+    /// The SQL prefilters on the longest word with `LIKE`, every vowel turned
+    /// into a one-character wildcard — "pa sparet" → `%sp_r_t%` still finds
+    /// "På spåret" (SQLite can't fold å/ä/ö, and `LIKE` is case-insensitive for
+    /// ASCII only). The exact folded, every-word match then happens in Swift.
+    public func searchProgrammes(text: String, in window: DateInterval, _ scope: Scope,
+                                 limit: Int) async throws -> [ProgrammeHit] {
+        let words = text.foldedForSearch().split(separator: " ").map(String.init).filter { $0.count > 1 }
+        guard let longest = words.max(by: { $0.count < $1.count }) else { return [] }
+        var pattern = ""
+        for ch in longest {
+            switch ch {
+            case "a", "e", "i", "o", "u", "y": pattern.append("_")
+            case "%", "_", "\\": pattern.append("\\"); pattern.append(ch)
+            default: pattern.append(ch)
+            }
+        }
+        let escaped = pattern
+        return try await read { conn in
+            let events = try conn.query(
+                "SELECT \(Self.epgColumns) FROM epg_event WHERE stop_at > ? AND start_at < ? " +
+                "AND title LIKE ? ESCAPE '\\' ORDER BY start_at LIMIT 600",
+                [.real(window.start.timeIntervalSince1970), .real(window.end.timeIntervalSince1970),
+                 .text("%\(escaped)%")],
+                Self.decodeEPG
+            ).filter { ProgrammeHit.matches($0.title, query: text) }
+            guard !events.isEmpty else { return [] }
+
+            let ids = Array(Set(events.map(\.channelEPGID)))
+            let (where_, params) = Self.channelWhere(category: nil, scope)
+            let ph = Array(repeating: "?", count: ids.count).joined(separator: ",")
+            let channels = try conn.query(
+                "SELECT \(Self.channelColumns) FROM channel WHERE epg_id IN (\(ph)) AND \(where_) " +
+                "ORDER BY region_priority, sort_index",
+                ids.map { SQLiteValue.text($0) } + params,
+                Self.decodeChannel
+            )
+            // Several channels can share one guide id (HD / SD feeds) — the
+            // best-ranked one stands for all of them.
+            var byEPG: [String: Channel] = [:]
+            for channel in channels {
+                if let epgID = channel.epgID, byEPG[epgID] == nil { byEPG[epgID] = channel }
+            }
+            let hits = events.compactMap { event in
+                byEPG[event.channelEPGID].map { ProgrammeHit(event: event, channel: $0) }
+            }
+            return ProgrammeHit.ranked(hits, now: Date(), limit: limit)
+        }
+    }
+
     // MARK: - WHERE builders (pure — no instance state)
 
     /// The visibility predicate, written as plain equalities (not `(? OR …)`) so
@@ -1007,10 +1065,12 @@ public final class CatalogDatabase: @unchecked Sendable {
             clauses.append("(duration_min IS NULL OR duration_min <= ?)")
             params.append(.integer(Int64(maxDuration)))
         }
-        let needle = filter.text.foldedForSearch()
-        if !needle.isEmpty {
+        // Every word must appear somewhere in the title, in any order —
+        // "thrones game" finds "Game of Thrones". Ranking (exact > prefix >
+        // contains) happens in `SearchEngine`.
+        for token in filter.text.foldedForSearch().split(separator: " ") where !token.isEmpty {
             clauses.append("instr(title_fold, ?) > 0")
-            params.append(.text(needle))
+            params.append(.text(String(token)))
         }
     }
 

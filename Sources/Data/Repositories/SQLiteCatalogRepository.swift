@@ -212,6 +212,13 @@ public actor SQLiteCatalogRepository: CatalogQuerying {
         await readOptional { try await database.nowPlaying(epgID: epgID, at: date) }
     }
 
+    /// Guide programmes matching `text`, on now or starting within a day.
+    public func searchProgrammes(text: String, limit: Int) async -> [ProgrammeHit] {
+        let now = Date()
+        let window = DateInterval(start: now, end: now.addingTimeInterval(24 * 3600))
+        return await read([]) { try await database.searchProgrammes(text: text, in: window, scope, limit: limit) }
+    }
+
     public func epgIndex(forEPGIDs epgIDs: [String], in window: DateInterval) async -> [String: [EPGEvent]] {
         await read([:]) { try await database.epgIndex(epgIDs: epgIDs, in: window) }
     }
@@ -289,6 +296,7 @@ public actor SQLiteCatalogRepository: CatalogQuerying {
             let wantMovies = intent.kinds.isEmpty || intent.kinds.contains(.movie)
             let wantSeries = intent.kinds.isEmpty || intent.kinds.contains(.series)
             let wantChannels = intent.kinds.contains(.liveChannel)
+                || (intent.kinds.isEmpty && !intent.freeText.isEmpty)
 
             let candidateCap = Swift.max(limit * 4, 400)
             let movies = wantMovies ? try await database.movieCandidates(filter, scope, limit: candidateCap) : []

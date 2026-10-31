@@ -373,6 +373,20 @@ public actor InMemoryCatalogRepository: CatalogQuerying {
 
     public func epgIndex() -> [String: [EPGEvent]] { epgByChannel }
 
+    public func searchProgrammes(text: String, limit: Int) -> [ProgrammeHit] {
+        let now = Date()
+        let end = now.addingTimeInterval(24 * 3600)
+        var hits: [ProgrammeHit] = []
+        for channel in catalog.channels {
+            guard let epgID = channel.epgID, let events = epgByChannel[epgID] else { continue }
+            for event in events where event.stop > now && event.start < end
+                && ProgrammeHit.matches(event.title, query: text) {
+                hits.append(ProgrammeHit(event: event, channel: channel))
+            }
+        }
+        return ProgrammeHit.ranked(hits, now: now, limit: limit)
+    }
+
     public func snapshot() -> Catalog { catalog }
 
     /// The full, unfiltered catalog — for persisting to the on-disk cache after
@@ -566,8 +580,11 @@ extension CatalogFilter {
             if let d = duration, d > maxDurationMinutes { return false }
         }
         if !text.isEmpty {
-            let needle = text.foldedForSearch()
-            if !needle.isEmpty, !title.foldedForSearch().contains(needle) { return false }
+            // Every word, any order — mirrors the SQLite store.
+            let folded = title.foldedForSearch()
+            for token in text.foldedForSearch().split(separator: " ") where !folded.contains(token) {
+                return false
+            }
         }
         return true
     }

@@ -8,6 +8,10 @@ public final class SearchViewModel {
     public var query = ""
     public private(set) var intent: SearchIntent = .empty
     public private(set) var results: [SearchResult] = []
+    /// Guide programmes matching the query — "Rapport", "Allsvenskan".
+    public private(set) var programmes: [ProgrammeHit] = []
+    /// What's on now on each channel in `results`, for the channel cards.
+    public private(set) var channelNow: [CatalogID: EPGEvent] = [:]
     public private(set) var isSearching = false
     public private(set) var hasSearched = false
     public private(set) var interpretedFrom = ""
@@ -20,7 +24,7 @@ public final class SearchViewModel {
     /// The last handful of queries the viewer actually ran, newest first.
     public private(set) var recentQueries: [String] = []
     private let recentKey = "search.recent.v1"
-    private let recentLimit = 6
+    private let recentLimit = 8
     private let defaults = UserDefaults.standard
 
     public struct Chip: Identifiable {
@@ -31,9 +35,22 @@ public final class SearchViewModel {
 
     public var chips: [Chip] { Self.chips(for: intent) }
 
+    // Grouped results, for the per-kind rows.
+    public var channels: [Channel] {
+        results.compactMap { r -> Channel? in if case .channel(let c) = r.item { return c } else { return nil } }
+    }
+    public var movies: [Movie] {
+        results.compactMap { r -> Movie? in if case .movie(let m) = r.item { return m } else { return nil } }
+    }
+    public var series: [Series] {
+        results.compactMap { r -> Series? in if case .series(let s) = r.item { return s } else { return nil } }
+    }
+    public var hasAnyResult: Bool { !results.isEmpty || !programmes.isEmpty }
+
     private let repository: any CatalogQuerying
     private let engine: SearchEngine
     private let ai: AIService
+    private let localParser = DeterministicQueryParser()
 
     public init(repository: any CatalogQuerying, engine: SearchEngine, ai: AIService) {
         self.repository = repository
@@ -42,22 +59,84 @@ public final class SearchViewModel {
         if let saved = defaults.stringArray(forKey: recentKey) { recentQueries = saved }
     }
 
+    /// As-you-type search. On-device parser only — nothing leaves the device
+    /// per keystroke; the AI tier (if enabled) runs on submit.
+    public func liveSearch(vocabulary: SearchVocabulary) async {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            intent = .empty
+            results = []
+            programmes = []
+            channelNow = [:]
+            hasSearched = false
+            return
+        }
+        await run(localParser.parseSync(trimmed, vocabulary: vocabulary), text: trimmed)
+    }
+
+    /// Submit (Search on the keyboard): may consult the AI parser, and the
+    /// query is remembered.
     public func search(vocabulary: SearchVocabulary) async {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
-        isSearching = true
-        defer { isSearching = false }
-
-        intent = await ai.intent(for: trimmed, vocabulary: vocabulary)
-        interpretedFrom = trimmed
-        await runEngine()
-        hasSearched = true
+        let parsed = await ai.intent(for: trimmed, vocabulary: vocabulary)
+        await run(parsed, text: trimmed)
         rememberRecent(trimmed)
     }
 
     public func runRecent(_ text: String, vocabulary: SearchVocabulary) async {
         query = text
         await search(vocabulary: vocabulary)
+    }
+
+    /// The viewer opened something from the results — that query worked, so
+    /// keep it in Recent.
+    public func noteResultOpened() {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty { rememberRecent(trimmed) }
+    }
+
+    private func run(_ parsed: SearchIntent, text: String) async {
+        if results.isEmpty && programmes.isEmpty { isSearching = true }
+        defer { isSearching = false }
+
+        let found = await repository.search(parsed, limit: 150)
+        guard !Task.isCancelled else { return }
+
+        // Programme titles: the leftover free text, or — when the parser read
+        // the whole query as filters ("fotboll" → sport) — the words as typed,
+        // so "fotboll" still finds tonight's match. Long sentences are filters,
+        // not programme names.
+        let programmeQuery = parsed.freeText.isEmpty ? text : parsed.freeText
+        let words = programmeQuery.split(separator: " ").count
+        var progs: [ProgrammeHit] = []
+        if words <= 4 {
+            progs = await repository.searchProgrammes(text: programmeQuery, limit: 24)
+        }
+        guard !Task.isCancelled else { return }
+
+        let channelHits = found.compactMap { r -> Channel? in
+            if case .channel(let c) = r.item { return c } else { return nil }
+        }
+        var now: [CatalogID: EPGEvent] = [:]
+        if !channelHits.isEmpty {
+            let t = Date()
+            let window = DateInterval(start: t.addingTimeInterval(-4 * 3600), end: t.addingTimeInterval(3600))
+            let epg = await repository.epgIndex(forEPGIDs: channelHits.compactMap(\.epgID), in: window)
+            for channel in channelHits {
+                if let id = channel.epgID, let event = epg.nowPlaying(forChannel: id, at: t) {
+                    now[channel.id] = event
+                }
+            }
+        }
+        guard !Task.isCancelled else { return }
+
+        intent = parsed
+        interpretedFrom = text
+        results = found
+        programmes = progs
+        channelNow = now
+        hasSearched = true
     }
 
     /// Populate `trending` from the newest additions, ranked by TMDB rating
@@ -69,7 +148,7 @@ public final class SearchViewModel {
         let items = await repository.recentlyAdded(limit: 30).map { SearchResult(item: $0, score: 0) }
         trending = items
             .sorted { (ratings[$0.id.rawValue] ?? 0) > (ratings[$1.id.rawValue] ?? 0) }
-            .prefix(14)
+            .prefix(18)
             .map { $0 }
     }
 
@@ -88,19 +167,17 @@ public final class SearchViewModel {
     public func removeChip(_ chip: Chip) {
         var updated = intent
         chip.remove(&updated)
-        intent = updated
-        Task { await runEngine() }
+        let text = interpretedFrom
+        Task { await run(updated, text: text) }
     }
 
     public func clear() {
         query = ""
         intent = .empty
         results = []
+        programmes = []
+        channelNow = [:]
         hasSearched = false
-    }
-
-    private func runEngine() async {
-        results = await repository.search(intent, limit: 150)
     }
 
     // MARK: - Chip mapping

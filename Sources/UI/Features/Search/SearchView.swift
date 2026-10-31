@@ -1,29 +1,43 @@
 import SwiftUI
 
+/// Search, the Apple TV way: the system search keyboard at the top, results
+/// updating underneath as you type, grouped by kind — channels (with what's on),
+/// programmes in the guide, films, series. Plain titles, channel names, guide
+/// programmes and free descriptions ("skräck med svenska undertexter") all work.
 struct SearchView: View {
     @Environment(AppEnvironment.self) private var env
     @Environment(SectionModels.self) private var models
     @State private var model: SearchViewModel?
     @State private var path: [AppRoute] = []
-    @State private var didAutoFocus = false
-    @FocusState private var searchFieldFocused: Bool
 
+    /// Shown on the empty screen — they double as a hint of what Search
+    /// understands. Tapping one runs it.
     private let examples = [
-        "Something scary with Swedish subtitles",
-        "English series released after 2020",
-        "A comedy under 90 minutes",
+        "Skräck med svenska undertexter",
+        "Komedi under 2 timmar",
+        "Engelska serier efter 2018",
         "Something like Game of Thrones",
-        "4K action movies",
+        "Barnfilmer",
+        "Dokumentärer",
     ]
-
-    private let columns = Array(repeating: GridItem(.fixed(Metrics.posterWidth), spacing: Metrics.cardSpacing),
-                                count: 5)
 
     var body: some View {
         NavigationStack(path: $path) {
             Group {
                 if let model {
-                    contentBody(model)
+                    content(model)
+                        .searchable(text: Binding(get: { model.query }, set: { model.query = $0 }),
+                                    prompt: "Titles, channels, programmes — or describe it")
+                        .onSubmit(of: .search) {
+                            Task { await model.search(vocabulary: env.vocabulary) }
+                        }
+                        // As-you-type: a short pause after the last key, then
+                        // search. A new key cancels the pending one.
+                        .task(id: model.query) {
+                            try? await Task.sleep(for: .milliseconds(320))
+                            guard !Task.isCancelled else { return }
+                            await model.liveSearch(vocabulary: env.vocabulary)
+                        }
                 } else {
                     Color.clear
                 }
@@ -40,192 +54,213 @@ struct SearchView: View {
         }
     }
 
-    @ViewBuilder
-    private func contentBody(_ model: SearchViewModel) -> some View {
+    // MARK: - Layout
+
+    private func content(_ model: SearchViewModel) -> some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: Metrics.space4) {
-                header(model)
-
-                if model.isSearching {
-                    VStack(spacing: Metrics.gridSpacing) {
-                        ForEach(0..<2, id: \.self) { _ in
-                            HStack(spacing: Metrics.cardSpacing) {
-                                ForEach(0..<5, id: \.self) { _ in
-                                    SkeletonBox().frame(width: Metrics.posterWidth, height: Metrics.posterHeight)
-                                }
-                            }
-                        }
+            LazyVStack(alignment: .leading, spacing: Metrics.shelfSpacing) {
+                if model.query.trimmingCharacters(in: .whitespaces).isEmpty {
+                    idleState(model)
+                } else if model.isSearching && !model.hasAnyResult {
+                    SkeletonShelf()
+                    SkeletonShelf()
+                } else if model.hasSearched && !model.hasAnyResult {
+                    if env.loadState.isImporting {
+                        LibraryLoadingPlaceholder().frame(minHeight: 360)
+                    } else {
+                        interpretation(model)
+                        EmptyStateView(
+                            icon: "magnifyingglass",
+                            title: "Nothing matched",
+                            message: "Nothing in your library or today's TV guide matches \u{201C}\(model.interpretedFrom)\u{201D}. Try fewer words, or remove a filter above."
+                        )
+                        .frame(maxWidth: .infinity, minHeight: 320)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.top, Metrics.space4)
-                } else if !model.hasSearched {
-                    if !model.trending.isEmpty {
-                        VStack(alignment: .leading, spacing: Metrics.space2) {
-                            Text("New to your library").font(.dsSectionHeader)
-                            posterGrid(model.trending)
-                        }
-                    }
-                    exampleQueries(model)
-                } else if model.results.isEmpty, env.loadState.isImporting {
-                    LibraryLoadingPlaceholder().frame(minHeight: 360)
-                } else if model.results.isEmpty {
-                    EmptyStateView(
-                        icon: "magnifyingglass",
-                        title: "Nothing matched",
-                        message: "\u{201C}\(model.interpretedFrom)\u{201D} didn't turn up anything in your library. Try removing a filter or rephrasing.",
-                        actionTitle: "Clear",
-                        action: { model.clear() }
-                    )
-                    .frame(minHeight: 360)
                 } else {
-                    results(model)
+                    interpretation(model)
+                    resultRows(model)
                 }
             }
-            .padding(Metrics.screenMargin)
+            .padding(.top, Metrics.space3)
+            .padding(.bottom, Metrics.space7)
         }
     }
 
-    private func header(_ model: SearchViewModel) -> some View {
-        VStack(alignment: .leading, spacing: Metrics.space3) {
-            Text("Search").font(.dsTitle).accessibilityAddTraits(.isHeader)
-
-            HStack(spacing: Metrics.space2) {
-                Image(systemName: "magnifyingglass")
-                    .font(.system(size: 26, weight: .medium))
-                    .foregroundStyle(Palette.textTertiary)
-                TextField("What do you want to watch?", text: Binding(
-                    get: { model.query },
-                    set: { model.query = $0 }
-                ))
-                .textFieldStyle(.plain)
-                .font(.dsCardTitle)
-                .focused($searchFieldFocused)
-                .onSubmit {
-                    Task {
-                        await model.search(vocabulary: env.vocabulary)
-                        // Drop keyboard focus so the remote's next press lands on
-                        // the results, not back in the field.
-                        searchFieldFocused = false
-                    }
-                }
-                .task {
-                    // Land on the field the first time Search opens, the way the
-                    // Apple TV search screens do. Not on every return trip.
-                    if !didAutoFocus, !model.hasSearched, model.query.isEmpty {
-                        didAutoFocus = true
-                        searchFieldFocused = true
-                    }
-                }
-            }
-            .padding(.horizontal, Metrics.space3)
-            .padding(.vertical, Metrics.space2 + 4)
-            .background(Palette.surface, in: RoundedRectangle(cornerRadius: Metrics.cornerRadius, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: Metrics.cornerRadius, style: .continuous)
-                    .strokeBorder(.white.opacity(0.06))
-            )
-            .frame(maxWidth: 1100)
-
-            if !model.chips.isEmpty {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Interpreted as").font(.dsCaption).foregroundStyle(Palette.textTertiary)
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: Metrics.space1) {
-                            ForEach(model.chips) { chip in
-                                FilterChip(label: chip.label, isSelected: true, showsRemoveIcon: true) {
-                                    model.removeChip(chip)
-                                }
+    /// The constraints the query was read as ("Horror", "Swedish subtitles",
+    /// "Under 2h") — each removable. Hidden for plain title searches.
+    @ViewBuilder
+    private func interpretation(_ model: SearchViewModel) -> some View {
+        if !model.chips.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Understood as").font(.dsCaption).foregroundStyle(Palette.textTertiary)
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: Metrics.space1) {
+                        ForEach(model.chips) { chip in
+                            FilterChip(label: chip.label, isSelected: true, showsRemoveIcon: true) {
+                                model.removeChip(chip)
                             }
                         }
                     }
-                    .focusSection()
-                    if model.hasSearched {
-                        Text("\(model.results.count) result\(model.results.count == 1 ? "" : "s")")
-                            .font(.dsCaption).foregroundStyle(Palette.textSecondary)
-                    }
+                    .padding(.vertical, Metrics.space1)
                 }
+                .scrollClipDisabled()
+            }
+            .padding(.horizontal, Metrics.screenMargin)
+            .focusSection()
+        }
+    }
+
+    @ViewBuilder
+    private func resultRows(_ model: SearchViewModel) -> some View {
+        if !model.channels.isEmpty {
+            Shelf(title: "Channels", items: model.channels) { channel in
+                let now = model.channelNow[channel.id]
+                ChannelCard(name: channel.name, logoURL: channel.logoURL,
+                            nowTitle: now?.title, quality: channel.quality,
+                            nowProgress: now.map { $0.progress(at: .now) },
+                            channelNumber: channel.sortIndex) {
+                    open(.channel(channel.id), model)
+                }
+            }
+        }
+        if !model.programmes.isEmpty {
+            Shelf(title: "On TV", subtitle: "Today in the guide", items: model.programmes) { hit in
+                ProgrammeCard(hit: hit) { open(.channel(hit.channel.id), model) }
+            }
+        }
+        if !model.movies.isEmpty {
+            Shelf(title: "Movies", items: model.movies) { movie in
+                movieCard(movie, model)
+            }
+        }
+        if !model.series.isEmpty {
+            Shelf(title: "Series", items: model.series) { show in
+                seriesCard(show, model)
             }
         }
     }
 
-    private func exampleQueries(_ model: SearchViewModel) -> some View {
-        VStack(alignment: .leading, spacing: Metrics.space4) {
-            if !model.recentQueries.isEmpty {
-                VStack(alignment: .leading, spacing: Metrics.space2) {
-                    HStack {
-                        Text("Recent").font(.dsSectionHeader)
-                        Spacer()
+    @ViewBuilder
+    private func idleState(_ model: SearchViewModel) -> some View {
+        if !model.recentQueries.isEmpty {
+            chipRow(title: "Recent searches", items: model.recentQueries, icon: "clock.arrow.circlepath",
+                    trailing: AnyView(
                         Button("Clear") { model.clearRecents() }
                             .buttonStyle(.bordered)
                             .controlSize(.small)
-                    }
-                    ForEach(model.recentQueries, id: \.self) { recent in
-                        Button {
-                            Task { await model.runRecent(recent, vocabulary: env.vocabulary) }
-                        } label: {
-                            HStack(spacing: Metrics.space2) {
-                                Image(systemName: "clock.arrow.circlepath").foregroundStyle(Palette.textTertiary)
-                                Text(recent).font(.dsBody).foregroundStyle(Palette.textPrimary)
-                                Spacer()
-                            }
-                        }
-                        .buttonStyle(RowButtonStyle())
-                        .accessibilityLabel("Search again: \(recent)")
-                    }
-                }
-                .focusSection()
+                    )) { text in
+                Task { await model.runRecent(text, vocabulary: env.vocabulary) }
             }
-
-            VStack(alignment: .leading, spacing: Metrics.space2) {
-                Text("Try asking for…").font(.dsSectionHeader)
-                ForEach(examples, id: \.self) { example in
-                    Button {
-                        model.query = example
-                        Task { await model.search(vocabulary: env.vocabulary) }
-                    } label: {
-                        HStack(spacing: Metrics.space2) {
-                            Image(systemName: "sparkle").foregroundStyle(Palette.accent)
-                            Text(example).font(.dsBody).foregroundStyle(Palette.textPrimary)
-                            Spacer()
-                        }
-                    }
-                    .buttonStyle(RowButtonStyle())
-                    .accessibilityLabel("Search: \(example)")
+        }
+        if !model.trending.isEmpty {
+            Shelf(title: "Popular in your library", items: model.trending) { result in
+                switch result.item {
+                case .movie(let m):   movieCard(m, model)
+                case .series(let s):  seriesCard(s, model)
+                case .channel(let c): ChannelCard(name: c.name, logoURL: c.logoURL) { open(.channel(c.id), model) }
                 }
             }
         }
-        .frame(maxWidth: 900, alignment: .leading)
+        chipRow(title: "Try searching for", items: examples, icon: "sparkle", trailing: nil) { example in
+            model.query = example
+            Task { await model.search(vocabulary: env.vocabulary) }
+        }
     }
 
-    private func results(_ model: SearchViewModel) -> some View {
-        posterGrid(model.results)
-    }
-
-    @ViewBuilder
-    private func posterGrid(_ items: [SearchResult]) -> some View {
-        LazyVGrid(columns: columns, alignment: .leading, spacing: Metrics.gridSpacing) {
-            ForEach(items) { result in
-                switch result.item {
-                case .movie(let m):
-                    PosterCard(title: m.title,
-                               subtitle: [m.year.map(String.init), m.genres.first?.displayName].compactMap { $0 }.joined(separator: " · "),
-                               artworkURL: m.posterURL,
-                               ref: ArtworkRef(id: m.id, title: m.title, year: m.year, isSeries: false),
-                               isNew: CatalogFreshness.isNew(m.addedAt),
-                               action: { path.append(.movie(m.id)) })
-                case .series(let s):
-                    PosterCard(title: s.title,
-                               subtitle: s.cardSubtitle,
-                               artworkURL: s.posterURL,
-                               ref: ArtworkRef(id: s.id, title: s.title, year: s.year, isSeries: true),
-                               isNew: CatalogFreshness.isNew(s.addedAt),
-                               action: { path.append(.series(s.id)) })
-                case .channel(let c):
-                    PosterCard(title: c.name, subtitle: c.category, artworkURL: c.logoURL,
-                               action: { path.append(.channel(c.id)) })
-                }
+    private func chipRow(title: String, items: [String], icon: String, trailing: AnyView?,
+                         action: @escaping (String) -> Void) -> some View {
+        VStack(alignment: .leading, spacing: Metrics.space2) {
+            HStack {
+                SectionHeader(title)
+                Spacer()
+                if let trailing { trailing }
             }
+            .padding(.horizontal, Metrics.screenMargin)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: Metrics.space2) {
+                    ForEach(items, id: \.self) { item in
+                        Button { action(item) } label: {
+                            Label(item, systemImage: icon).font(.dsBody)
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                }
+                .padding(.horizontal, Metrics.screenMargin)
+                .padding(.vertical, Metrics.space2)
+            }
+            .scrollClipDisabled()
         }
         .focusSection()
+    }
+
+    // MARK: - Cards
+
+    private func movieCard(_ m: Movie, _ model: SearchViewModel) -> some View {
+        PosterCard(title: m.title,
+                   subtitle: [m.year.map(String.init), m.genres.first?.displayName]
+                       .compactMap { $0 }.joined(separator: " · "),
+                   artworkURL: m.posterURL,
+                   ref: ArtworkRef(id: m.id, title: m.title, year: m.year, isSeries: false),
+                   isNew: CatalogFreshness.isNew(m.addedAt),
+                   action: { open(.movie(m.id), model) })
+    }
+
+    private func seriesCard(_ s: Series, _ model: SearchViewModel) -> some View {
+        PosterCard(title: s.title,
+                   subtitle: s.cardSubtitle,
+                   artworkURL: s.posterURL,
+                   ref: ArtworkRef(id: s.id, title: s.title, year: s.year, isSeries: true),
+                   isNew: CatalogFreshness.isNew(s.addedAt),
+                   action: { open(.series(s.id), model) })
+    }
+
+    private func open(_ route: AppRoute, _ model: SearchViewModel) {
+        model.noteResultOpened()
+        path.append(route)
+    }
+}
+
+/// A guide programme in search results: when, what, on which channel — with a
+/// live badge and progress when it's on now.
+private struct ProgrammeCard: View {
+    let hit: ProgrammeHit
+    let action: () -> Void
+
+    var body: some View {
+        let now = Date()
+        let live = hit.event.isLive(at: now)
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: Metrics.space1) {
+                    Text(timeLabel(now: now))
+                        .font(.dsTag)
+                        .foregroundStyle(live ? Palette.accent : Palette.textSecondary)
+                    if live { LiveBadge() }
+                    Spacer(minLength: 0)
+                }
+                Text(hit.event.title)
+                    .font(.dsCardTitle)
+                    .foregroundStyle(Palette.textPrimary)
+                    .lineLimit(2)
+                Spacer(minLength: 0)
+                Text(hit.channel.name)
+                    .font(.dsCaption)
+                    .foregroundStyle(Palette.textTertiary)
+                    .lineLimit(1)
+                if live {
+                    ProgressView(value: hit.event.progress(at: now)).tint(Palette.accent)
+                }
+            }
+            .padding(Metrics.space2)
+            .frame(width: 300, height: 170, alignment: .leading)
+        }
+        .buttonStyle(.card)
+        .accessibilityLabel("\(hit.event.title), \(hit.channel.name), \(timeLabel(now: now))\(live ? ", on now" : "")")
+    }
+
+    private func timeLabel(now: Date) -> String {
+        let time = hit.event.start.formatted(date: .omitted, time: .shortened)
+        if Calendar.current.isDate(hit.event.start, inSameDayAs: now) { return time }
+        return "Tomorrow \(time)"
     }
 }

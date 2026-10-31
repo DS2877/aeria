@@ -49,4 +49,38 @@ final class SearchFlowTests: XCTestCase {
         XCTAssertTrue(vm.results.allSatisfy { $0.kind == .movie })
         XCTAssertTrue(vm.chips.contains { $0.label == "Horror" })
     }
+
+    @MainActor
+    func testPlainChannelNameFindsTheChannel() async {
+        let repo = InMemoryCatalogRepository()
+        await repo.load(Normalizer().normalize(MockCatalogData.rawCatalog()))
+        let vm = SearchViewModel(repository: repo, engine: SearchEngine(),
+                                 ai: AIService(mode: .onDeviceOnly))
+        vm.query = "svt1"
+        await vm.liveSearch(vocabulary: .init())
+        XCTAssertTrue(vm.channels.contains { $0.name == "SVT1" },
+                      "channels: \(vm.channels.map(\.name))")
+    }
+
+    @MainActor
+    func testGuideProgrammesAreSearchable() async {
+        let catalog = Normalizer().normalize(MockCatalogData.rawCatalog())
+        let repo = InMemoryCatalogRepository()
+        await repo.load(catalog)
+        let now = Date()
+        let channelEPGIDs = Set(catalog.channels.compactMap(\.epgID))
+        guard let event = catalog.epg.first(where: {
+            $0.stop > now && $0.start < now.addingTimeInterval(20 * 3600) && channelEPGIDs.contains($0.channelEPGID)
+        }) else {
+            return XCTFail("mock guide has nothing upcoming")
+        }
+        let hits = await repo.searchProgrammes(text: event.title.lowercased(), limit: 20)
+        XCTAssertTrue(hits.contains { $0.event.title == event.title })
+    }
+
+    func testProgrammeMatchIgnoresDiacriticsAndWordOrder() {
+        XCTAssertTrue(ProgrammeHit.matches("På spåret", query: "pa sparet"))
+        XCTAssertTrue(ProgrammeHit.matches("Gomorron Sverige", query: "sverige gomorron"))
+        XCTAssertFalse(ProgrammeHit.matches("Rapport", query: "aktuellt"))
+    }
 }

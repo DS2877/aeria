@@ -24,14 +24,19 @@ public struct DeterministicQueryParser: AIQueryParser {
         var consumed = Set<String>()
 
         // MARK: Kind
-        if text.containsWord(anyOf: ["movie", "movies", "film", "films", "cinema"]) {
-            intent.kinds.append(.movie); consumed.formUnion(["movie", "movies", "film", "films", "cinema"])
+        // English and Swedish (folded: "säsong" → "sasong").
+        let movieWords = ["movie", "movies", "film", "films", "cinema", "filmer", "filmen", "langfilm"]
+        let seriesWords = ["series", "show", "shows", "tv show", "tv shows", "episode", "episodes", "season", "seasons",
+                           "serie", "serier", "serien", "tv serie", "tv serier", "avsnitt", "sasong", "sasonger"]
+        let channelWords = ["channel", "channels", "live tv", "live", "kanal", "kanaler", "kanalen", "direkt"]
+        if text.containsWord(anyOf: movieWords) {
+            intent.kinds.append(.movie); consumed.formUnion(movieWords)
         }
-        if text.containsWord(anyOf: ["series", "show", "shows", "tv show", "tv shows", "episode", "episodes", "season", "seasons"]) {
-            intent.kinds.append(.series); consumed.formUnion(["series", "show", "shows", "episode", "episodes", "season", "seasons"])
+        if text.containsWord(anyOf: seriesWords) {
+            intent.kinds.append(.series); consumed.formUnion(seriesWords)
         }
-        if text.containsWord(anyOf: ["channel", "channels", "live tv", "live"]) {
-            intent.kinds.append(.liveChannel); consumed.formUnion(["channel", "channels", "live"])
+        if text.containsWord(anyOf: channelWords) {
+            intent.kinds.append(.liveChannel); consumed.formUnion(channelWords)
         }
 
         // MARK: Genres (with mood synonyms)
@@ -67,16 +72,16 @@ public struct DeterministicQueryParser: AIQueryParser {
         if intent.minQuality != nil { consumed.formUnion(qualityTerms) }
 
         // MARK: Time context
-        if text.containsWord(anyOf: ["tonight", "this evening"]) { intent.timeContext = .tonight }
-        else if text.containsWord(anyOf: ["right now", "on now", "whats on", "what is on"]) { intent.timeContext = .now }
+        if text.containsWord(anyOf: ["tonight", "this evening", "ikvall", "i kvall"]) { intent.timeContext = .tonight }
+        else if text.containsWord(anyOf: ["right now", "on now", "whats on", "what is on", "just nu"]) { intent.timeContext = .now }
 
         // MARK: Sort hints
-        if text.containsWord(anyOf: ["newest", "latest", "recent", "new releases"]) {
+        if text.containsWord(anyOf: ["newest", "latest", "recent", "new releases", "nyaste", "senaste", "nysläppta", "nyslappta"]) {
             intent.sort = .newest
-            consumed.formUnion(["newest", "latest", "recent"])
-        } else if text.containsWord(anyOf: ["shortest", "quickest"]) {
+            consumed.formUnion(["newest", "latest", "recent", "nyaste", "senaste", "nyslappta"])
+        } else if text.containsWord(anyOf: ["shortest", "quickest", "kortaste"]) {
             intent.sort = .durationAscending
-            consumed.formUnion(["shortest", "quickest"])
+            consumed.formUnion(["shortest", "quickest", "kortaste"])
         }
 
         // MARK: Free text — leftover meaningful words
@@ -87,25 +92,36 @@ public struct DeterministicQueryParser: AIQueryParser {
 
     // MARK: - Genre / mood synonyms
 
+    /// English and Swedish mood / genre words, in folded form (no diacritics:
+    /// "skräck" → "skrack", "dokumentär" → "dokumentar").
     static let genreSynonyms: [(Genre, [String])] = [
-        (.horror,      ["horror", "scary", "spooky", "terrifying", "slasher", "creepy", "frightening"]),
-        (.comedy,      ["comedy", "funny", "hilarious", "lighthearted", "light hearted", "laugh"]),
-        (.action,      ["action", "explosive", "fast paced", "action packed"]),
-        (.thriller,    ["thriller", "tense", "suspenseful", "edge of my seat", "gripping"]),
-        (.romance,     ["romance", "romantic", "love story", "date night"]),
-        (.drama,       ["drama", "dramatic", "emotional", "moving", "tearjerker"]),
-        (.sciFi,       ["sci fi", "scifi", "science fiction", "space", "futuristic", "dystopian", "aliens"]),
-        (.fantasy,     ["fantasy", "magical", "medieval", "dragons", "epic"]),
-        (.documentary, ["documentary", "documentaries", "true story", "docuseries"]),
-        (.animation,   ["animated", "animation", "anime", "cartoon"]),
-        (.crime,       ["crime", "heist", "detective", "noir", "true crime"]),
-        (.mystery,     ["mystery", "whodunit", "puzzling"]),
-        (.family,      ["family", "family friendly", "wholesome"]),
-        (.kids,        ["kids", "children", "for my kids", "toddler"]),
-        (.war,         ["war", "wartime", "military"]),
-        (.western,     ["western", "cowboy", "wild west"]),
-        (.history,     ["history", "historical", "period drama"]),
-        (.sport,       ["sport", "sports", "football", "soccer", "basketball"]),
+        (.horror,      ["horror", "scary", "spooky", "terrifying", "slasher", "creepy", "frightening",
+                        "skrack", "skrackfilm", "skrackfilmer", "laskig", "laskigt", "laskiga", "rysare", "rysligt"]),
+        (.comedy,      ["comedy", "funny", "hilarious", "lighthearted", "light hearted", "laugh",
+                        "komedi", "komedier", "rolig", "roligt", "roliga", "lattsam", "humor"]),
+        (.action,      ["action", "explosive", "fast paced", "action packed", "actionfilm", "actionfilmer"]),
+        (.thriller,    ["thriller", "tense", "suspenseful", "edge of my seat", "gripping",
+                        "thrillers", "spannande", "spanning", "nervkittlande"]),
+        (.romance,     ["romance", "romantic", "love story", "date night",
+                        "romantik", "romantisk", "romantiska", "karlek", "karleksfilm", "karlekshistoria"]),
+        (.drama,       ["drama", "dramatic", "emotional", "moving", "tearjerker", "draman", "dramer", "gripande"]),
+        (.sciFi,       ["sci fi", "scifi", "science fiction", "space", "futuristic", "dystopian", "aliens",
+                        "rymden", "framtiden", "utomjordingar"]),
+        (.fantasy,     ["fantasy", "magical", "medieval", "dragons", "epic", "magi", "magisk", "drakar"]),
+        (.documentary, ["documentary", "documentaries", "true story", "docuseries",
+                        "dokumentar", "dokumentarer", "dokumentarfilm", "dokumentarserie", "verklig historia"]),
+        (.animation,   ["animated", "animation", "anime", "cartoon", "animerad", "animerat", "animerade",
+                        "tecknad", "tecknat", "tecknade"]),
+        (.crime,       ["crime", "heist", "detective", "noir", "true crime",
+                        "kriminal", "deckare", "deckarserie", "brott", "polisserie", "kupp"]),
+        (.mystery,     ["mystery", "whodunit", "puzzling", "mysterium", "mysterier", "gata"]),
+        (.family,      ["family", "family friendly", "wholesome", "familj", "familjefilm", "hela familjen"]),
+        (.kids,        ["kids", "children", "for my kids", "toddler", "barn", "barnen", "barnfilm",
+                        "barnfilmer", "barnprogram", "for barn"]),
+        (.war,         ["war", "wartime", "military", "krig", "krigsfilm", "andra varldskriget"]),
+        (.western,     ["western", "cowboy", "wild west", "vilda vastern", "cowboys"]),
+        (.history,     ["history", "historical", "period drama", "historisk", "historiska", "historia", "kostymdrama"]),
+        (.sport,       ["sport", "sports", "football", "soccer", "basketball", "fotboll", "hockey", "ishockey"]),
     ]
 
     // MARK: - Languages
@@ -119,6 +135,14 @@ public struct DeterministicQueryParser: AIQueryParser {
         "german": .german, "germany": .german,
         "spanish": .spanish, "spain": .spanish,
         "french": .french, "france": .french,
+        // Swedish (folded)
+        "svensk": .swedish, "svenska": .swedish, "svenskt": .swedish, "sverige": .swedish,
+        "engelsk": .english, "engelska": .english, "engelskt": .english,
+        "norsk": .norwegian, "norska": .norwegian, "norskt": .norwegian, "norge": .norwegian,
+        "dansk": .danish, "danska": .danish, "danskt": .danish, "danmark": .danish,
+        "finsk": .finnish, "finska": .finnish,
+        "tysk": .german, "tyska": .german, "spansk": .spanish, "spanska": .spanish,
+        "fransk": .french, "franska": .french,
     ]
 
     static func parseLanguages(_ text: String) -> (audio: [Language], subs: [Language], words: Set<String>) {
@@ -126,18 +150,29 @@ public struct DeterministicQueryParser: AIQueryParser {
         var subs: [Language] = []
         var words = Set<String>()
 
-        let subtitleContext = CompiledPattern(#"(\w+)\s+(?:sub|subs|subtitle|subtitles|subtitled)"#)
-        let subtitleContext2 = CompiledPattern(#"(?:sub|subs|subtitle|subtitles)\s+(?:in\s+)?(\w+)"#)
+        // "swedish subtitles", "svenska undertexter", "svensk text"
+        let subtitleContext = CompiledPattern(#"(\w+)\s+(?:sub|subs|subtitle|subtitles|subtitled|undertext|undertexter|text|textning|textad|textade)"#)
+        // "subtitles in swedish", "undertexter pa svenska", "textad pa svenska"
+        let subtitleContext2 = CompiledPattern(#"(?:sub|subs|subtitle|subtitles|undertext|undertexter|textad|textade|textat)\s+(?:in\s+|pa\s+)?(\w+)"#)
+        // One word: "svensktextad", "swesub"
+        for (word, lang) in [("svensktextad", Language.swedish), ("svensktextade", .swedish),
+                             ("svensktextat", .swedish), ("swesub", .swedish), ("swesubs", .swedish),
+                             ("engsub", .english)] where text.containsWord(anyOf: [word]) {
+            if !subs.contains(lang) { subs.append(lang) }
+            words.insert(word)
+        }
         for pattern in [subtitleContext, subtitleContext2] {
             if let groups = pattern.firstMatchGroups(text), let word = groups[1]?.lowercased(),
                let lang = languageWords[word] {
                 if !subs.contains(lang) { subs.append(lang) }
                 words.insert(word)
-                words.formUnion(["sub", "subs", "subtitle", "subtitles", "subtitled"])
+                words.formUnion(["sub", "subs", "subtitle", "subtitles", "subtitled",
+                                 "undertext", "undertexter", "text", "textning", "textad", "textade", "textat"])
             }
         }
 
-        let audioContext = CompiledPattern(#"(\w+)[\s\-]?(?:audio|dub|dubbed|spoken|language|dialogue)"#)
+        // "swedish audio", "svenskt tal", "svenskt ljud", "dubbad svenska"
+        let audioContext = CompiledPattern(#"(\w+)[\s\-]?(?:audio|dub|dubbed|spoken|language|dialogue|tal|ljud|dubbad|dubbat|dubbade)"#)
         if let groups = audioContext.firstMatchGroups(text), let word = groups[1]?.lowercased(),
            let lang = languageWords[word] {
             if !audio.contains(lang) { audio.append(lang) }
@@ -161,10 +196,13 @@ public struct DeterministicQueryParser: AIQueryParser {
     // MARK: - Years
 
     static func parseYears(_ text: String) -> (min: Int?, max: Int?)? {
-        let after = CompiledPattern(#"(?:after|since|from|newer than)\s+((?:19|20)\d{2})"#)
-        let before = CompiledPattern(#"(?:before|until|older than|up to)\s+((?:19|20)\d{2})"#)
-        let inYear = CompiledPattern(#"(?:in|released in|from)\s+((?:19|20)\d{2})"#)
-        let decade = CompiledPattern(#"((?:19|20)\d0)s"#)
+        let after = CompiledPattern(#"(?:after|since|from|newer than|efter|sedan|nyare an)\s+((?:19|20)\d{2})"#)
+        let before = CompiledPattern(#"(?:before|until|older than|up to|fore|innan|aldre an)\s+((?:19|20)\d{2})"#)
+        let inYear = CompiledPattern(#"(?:in|released in|from|fran|ar)\s+((?:19|20)\d{2})"#)
+        // "90s", "1990s", "1990 talet" ("90-talet" folds to "90 talet")
+        let decade = CompiledPattern(#"((?:19|20)\d0)(?:s|\s?talet)"#)
+        // "90s", "80-talet" — two-digit decades are last century.
+        let shortDecade = CompiledPattern(#"(?<!\d)([2-9]0)(?:s|\s?talet)"#)
 
         if let g = after.firstMatchGroups(text), let y = g[1].flatMap({ Int($0) }) {
             return (min: y + 1, max: nil)
@@ -174,6 +212,9 @@ public struct DeterministicQueryParser: AIQueryParser {
         }
         if let g = decade.firstMatchGroups(text), let y = g[1].flatMap({ Int($0) }) {
             return (min: y, max: y + 9)
+        }
+        if let g = shortDecade.firstMatchGroups(text), let y = g[1].flatMap({ Int($0) }) {
+            return (min: 1900 + y, max: 1900 + y + 9)
         }
         if let g = inYear.firstMatchGroups(text), let y = g[1].flatMap({ Int($0) }) {
             return (min: y, max: y)
@@ -186,6 +227,7 @@ public struct DeterministicQueryParser: AIQueryParser {
     private static let numberWords: [String: String] = [
         "one": "1", "two": "2", "three": "3", "four": "4", "five": "5",
         "couple of": "2",
+        "en": "1", "ett": "1", "tva": "2", "tre": "3", "fyra": "4", "fem": "5",
     ]
 
     static func parseMaxDuration(_ rawText: String) -> Int? {
@@ -195,9 +237,10 @@ public struct DeterministicQueryParser: AIQueryParser {
             text = text.replacingOccurrences(of: " \(word) ", with: " \(digit) ")
         }
         // "under 2 hours", "less than 90 minutes", "shorter than 1h30"
-        let hours = CompiledPattern(#"(?:under|less than|below|at most|max|maximum|shorter than|no more than|about|around)\s+(\d+(?:\.\d+)?)\s*(?:hours?|hrs?|h)\b"#)
-        let mins  = CompiledPattern(#"(?:under|less than|below|at most|max|maximum|shorter than|no more than)\s+(\d{2,3})\s*(?:minutes?|mins?|m)\b"#)
-        let hm    = CompiledPattern(#"(?:under|less than|below|at most|shorter than)\s+(\d)\s*h(?:our)?s?\s*(\d{1,2})"#)
+        let limit = "under|less than|below|at most|max|maximum|shorter than|no more than|mindre an|kortare an|hogst|hogst|hochst|inte mer an"
+        let hours = CompiledPattern(#"(?:"# + limit + #"|about|around|ungefar|runt)\s+(\d+(?:\.\d+)?)\s*(?:hours?|hrs?|h|timmar|timme|tim|t)\b"#)
+        let mins  = CompiledPattern(#"(?:"# + limit + #")\s+(\d{2,3})\s*(?:minutes?|mins?|m|minuter|minut|min)\b"#)
+        let hm    = CompiledPattern(#"(?:under|less than|below|at most|shorter than|mindre an|kortare an)\s+(\d)\s*h(?:our)?s?\s*(\d{1,2})"#)
 
         if let g = hm.firstMatchGroups(text),
            let h = g[1].flatMap({ Int($0) }), let m = g[2].flatMap({ Int($0) }) {
@@ -230,6 +273,14 @@ public struct DeterministicQueryParser: AIQueryParser {
         // duration / time units and small number words (dropped as filler)
         "hour", "hours", "hr", "hrs", "minute", "minutes", "min", "mins", "long",
         "one", "two", "three", "four", "five", "half",
+        // Swedish filler (folded)
+        "nagot", "nagon", "nagra", "med", "och", "eller", "jag", "vill", "se", "titta", "kolla",
+        "pa", "ett", "som", "for", "till", "av", "om", "det", "den", "de", "ar", "har",
+        "kan", "du", "mig", "oss", "vi", "bra", "basta", "bast", "liknande", "typ", "tips",
+        "ny", "nya", "nytt", "gammal", "gamla", "fran", "efter", "innan", "fore", "an",
+        "timme", "timmar", "tim", "minut", "minuter", "lang", "kort", "kortare", "mindre",
+        "ikvall", "kvall", "nu", "idag", "just", "visa", "hitta", "sok", "rekommendera",
+        "tva", "tre", "fyra", "fem", "halv", "talet", "s",
     ]
 
     static func residualFreeText(_ originalQuery: String, consumed: Set<String>) -> String {
