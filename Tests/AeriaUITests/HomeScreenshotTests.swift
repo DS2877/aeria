@@ -78,12 +78,11 @@ final class HomeScreenshotTests: XCTestCase {
         app.launchArguments += ["-AeriaScreenshots", "-AeriaScreenshotSection", "guide"]
         app.launch()
         sleep(12)
+        snap("18b-guide-launch")
 
         let remote = XCUIRemote.shared
-        // Launch focus may sit in the rail (on Guide) — click it to dive in,
-        // which is also what this checks: a click must not jump to Home.
-        remote.press(.select)
-        sleep(2)
+        // Focus starts in the rail on Guide. → must enter the guide (the
+        // info pane above the rows has nothing focusable).
         remote.press(.right)
         sleep(2)
         snap("19-guide-focused")
@@ -96,6 +95,17 @@ final class HomeScreenshotTests: XCTestCase {
         remote.press(.menu)          // closes the preview, stays in the guide
         sleep(2)
         snap("22-guide-preview-closed")
+    }
+
+    /// Clicking a sidebar item dives into that section (it used to jump to Home).
+    func testClickingSidebarItemOpensThatSection() {
+        let app = XCUIApplication()
+        app.launchArguments += ["-AeriaScreenshots", "-AeriaScreenshotSection", "guide"]
+        app.launch()
+        sleep(12)
+        XCUIRemote.shared.press(.select)
+        sleep(3)
+        snap("25-guide-after-click")
     }
 
     /// Menu on a detail screen goes back one step, not to the sidebar.

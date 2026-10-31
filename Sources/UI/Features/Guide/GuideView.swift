@@ -221,8 +221,22 @@ struct GuideView: View {
                     }
                     .padding(.bottom, Metrics.space7)
                 }
+                // The info pane above has nothing focusable, so pressing →
+                // from the sidebar found no target level with the Guide item
+                // and focus stayed in the rail. The rows are one focus region
+                // whose default — on every entry, not just the first — is
+                // what's on now on the first channel.
+                .focusSection()
+                .defaultFocus($focusedEvent, entryFocusID(model), priority: .userInitiated)
             }
         }
+    }
+
+    /// Where focus lands when you enter the guide: the programme on now on the
+    /// first channel (or its first programme).
+    private func entryFocusID(_ model: GuideViewModel) -> String? {
+        guard let first = model.rows.first else { return nil }
+        return (first.events.first { $0.isLive(at: model.now) } ?? first.events.first)?.id
     }
 
     /// Top of the guide: what the focused programme is, and the mini player.
