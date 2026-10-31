@@ -61,6 +61,43 @@ instead: `git push origin origin/claude/laughing-sagan-ysfi19:main`.
   New test `testGenreTallyIsCachedPerScopeAtImportEnd`. Existing libraries get the
   cache on their next import/refresh — no schema bump.
 
+### 1b. CI now builds + tests on every push (no local build needed)
+
+`.github/workflows/build-and-test.yml` runs on a GitHub-hosted Mac (`macos-26`)
+for every push to `claude/**` / `import-progress-checklist`: XcodeGen via
+`ci_post_clone.sh`, `xcodebuild test` (scheme `Aeria`) on an Apple TV 4K
+simulator, then a screenshot pass (scheme `AeriaScreenshots`, UI test
+`Tests/AeriaUITests/HomeScreenshotTests.swift`) that launches the demo library
+with the DEBUG-only `-AeriaScreenshots` flag (seeds progress + fake ratings) and
+uploads Home screenshots as the `home-screenshots` artifact. Read failures with
+the GitHub MCP tools (`actions_list` / `get_job_logs`). The user wants to do
+**zero** manual steps — use CI as the build gate, not "please build in Xcode".
+Simulator-only: device feel (focus, scroll smoothness, real artwork) still
+needs the TV.
+
+### 1c. Performance pass (2026-10-31)
+
+- `ImageCache`: the load task used to inherit the actor → all disk reads and
+  decodes were serialized. Now `Task.detached`; `DecodeLimiter` caps decodes.
+  Disk-size sweep moved off the first image request.
+- SQL: leading `(added_at IS NULL)` / `(year IS NULL)` ORDER BY terms removed
+  (SQLite sorts NULL lowest; DESC already puts them last) so shelves/browse walk
+  the `*_visible_*` indexes instead of sorting the library. Genre shelves use
+  `EXISTS`. Sampled `ANALYZE` after each import.
+- Home: `makeContent` off the main actor; TMDB rating batches re-shape cached
+  inputs (`refreshRatings`) instead of a ~20-query rebuild.
+- Launch: `AppEnvironment.startUp()` wires only the TMDB key before `bootstrap`.
+- Not done (schema bump needed): Live TV "For you" order still leads with
+  `(recent_rank IS NULL)` → full sort per page. Fold recents into a single
+  `for_you_rank` column + index when a schema bump is next due.
+
+### 1d. Home redesign (2026-10-31)
+
+Hero 800 pt with slow push-in + first shelf overlapping its fade
+(`HeroBanner.shelfOverlap`); Continue Watching = `ResumeCard` (16:9, prefers TMDB
+backdrop via `EnrichedArtwork(preferEnriched:)`); Top Rated → ranked Top 10
+(`RankedPosterCard`); `HomeRow.style`; snapshot v3.
+
 ## 2. Unverified on device — verify before building on top of it
 
 Ask the user to run the build, `⌘U`, and report. Likely compile-risk spots listed
