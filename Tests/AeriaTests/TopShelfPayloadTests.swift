@@ -22,7 +22,7 @@ final class TopShelfPayloadTests: XCTestCase {
         XCTAssertEqual(decoded.recentlyAdded, payload.recentlyAdded)
     }
 
-    func testDeepLinkEncodesTheId() {
+    func testDeepLinkEncodesTheId() throws {
         let item = TopShelfPayload.Item(title: "Dune", subtitle: nil, imageURL: nil,
                                         routeKind: "movie", id: "movie:abc123")
         let link = try XCTUnwrap(item.deepLink)

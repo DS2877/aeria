@@ -1,6 +1,7 @@
 import XCTest
 @testable import Aeria
 
+@MainActor
 final class SearchFlowTests: XCTestCase {
 
     func testChipMappingCoversEveryConstraint() {
