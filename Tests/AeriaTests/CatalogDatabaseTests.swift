@@ -249,6 +249,26 @@ final class CatalogDatabaseTests: XCTestCase {
         XCTAssertTrue(afterClear.isEmpty)
     }
 
+    func testPartialRefreshOnlyPrunesTheRefreshedParts() async throws {
+        let gen1 = await database.nextGeneration()
+        try await database.insertMovies([movie("m1", "Film One")], generation: gen1)
+        try await database.insertChannels([channel("c1", "SVT1", country: "SE", num: 1)],
+                                          homeRegions: ["SE"], generation: gen1)
+        try await database.finishGeneration(gen1)
+
+        // A channels-only refresh: new channel list, films not re-fetched.
+        let gen2 = await database.nextGeneration()
+        try await database.insertChannels([channel("c2", "SVT2", country: "SE", num: 2)],
+                                          homeRegions: ["SE"], generation: gen2)
+        try await database.finishGeneration(gen2, parts: .channels)
+
+        let films = try await database.movieCount(.none, .unfiltered)
+        XCTAssertEqual(films, 1, "films must survive a channels-only refresh")
+        let names = try await database.channels(category: nil, sort: .nameAsc, .unfiltered,
+                                                page: 0, pageSize: 10).map(\.name)
+        XCTAssertEqual(names, ["SVT2"], "the refreshed part is pruned as usual")
+    }
+
     // MARK: - Channels
 
     func testChannelForYouOrder() async throws {

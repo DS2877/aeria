@@ -50,24 +50,35 @@ public struct XtreamProviderClient: ProviderClient {
         progress: ImportProgressReporter,
         emit: @Sendable (RawStage) async -> Void
     ) async throws {
+        try await fetchStaged(progress: progress, parts: .all, emit: emit)
+    }
+
+    /// Only the requested parts — the lists that aren't due aren't requested
+    /// at all (the point of a staggered refresh).
+    public func fetchStaged(
+        progress: ImportProgressReporter,
+        parts: ImportParts,
+        emit: @Sendable (RawStage) async -> Void
+    ) async throws {
         progress.reached(.connecting)
         try await verifyAuth()
 
         var channelCount = 0, movieCount = 0, shellCount = 0
 
-        do {
+        if parts.contains(.channels) {
             let channels = try await fetchLiveChannels()
             channelCount = channels.count
             progress.reached(.channels)
             await emit(.channels(channels))
         }
 
-        progress.reached(.movies)
-        do {
+        if parts.contains(.vod) {
+            progress.reached(.movies)
             let movies = try await fetchMovies()
             progress.reached(.series)
             let shells = (try? await fetchSeriesShells()) ?? []   // don't sink the import
-            guard channelCount > 0 || !movies.isEmpty || !shells.isEmpty else {
+            // Only a full import can tell "the subscription is empty".
+            if parts == .all, channelCount == 0, movies.isEmpty, shells.isEmpty {
                 AppLog.provider.error("Xtream import: authenticated but every list came back empty.")
                 throw ProviderError.emptyLibrary
             }
@@ -76,8 +87,8 @@ public struct XtreamProviderClient: ProviderClient {
             await emit(.vod(movies: movies, shells: shells, episodes: []))
         }
 
-        progress.reached(.guide)
-        do {
+        if parts.contains(.guide) {
+            progress.reached(.guide)
             let epg = (try? await fetchEPG()) ?? []
             await emit(.guide(epg))
         }

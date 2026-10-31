@@ -31,8 +31,27 @@ public final class AppEnvironment {
     private var provider: (any ProviderClient)?
     private var refreshTask: Task<Void, Never>?
 
-    /// How old a cached catalog can be before we silently refresh it on launch.
-    private let staleAfter: TimeInterval = 60 * 60 * 6
+    /// How old each part of the cached catalogue can get before it's silently
+    /// refreshed on launch. They change at very different rates, and the
+    /// film/series lists are by far the biggest downloads.
+    private static let refreshAfter: [(part: ImportParts, age: TimeInterval)] = [
+        (.channels, 6 * 3600),
+        (.guide, 12 * 3600),
+        (.vod, 24 * 3600),
+    ]
+
+    /// The parts due for a background refresh — everything when the stored
+    /// library was filtered under older market rules.
+    private func dueParts() async -> ImportParts {
+        let rules = (try? await database.metaValue(CatalogDatabase.MetaKey.relevanceRules)) ?? nil
+        if rules != RelevanceFilter.rulesVersion { return .all }
+        var due: ImportParts = []
+        for (part, maxAge) in Self.refreshAfter {
+            let age = await database.importedAt(part).map { Date().timeIntervalSince($0) } ?? .infinity
+            if age > maxAge { due.insert(part) }
+        }
+        return due
+    }
 
     /// True while a background library refresh is running (cache was shown first).
     public private(set) var isRefreshing = false
@@ -245,12 +264,12 @@ public final class AppEnvironment {
                 self.startMetadataWarmUp()
                 await self.writeTopShelfSnapshot()
 
-                let age = await self.database.importedAt().map { Date().timeIntervalSince($0) } ?? .infinity
-                // A library filtered under older market rules is re-imported in
-                // the background so foreign rows are pruned without a wipe.
-                let rules = (try? await self.database.metaValue(CatalogDatabase.MetaKey.relevanceRules)) ?? nil
-                if age > self.staleAfter || rules != RelevanceFilter.rulesVersion {
-                    self.startBackgroundRefresh(client: client, providerID: providerID, homeRegions: homeRegions)
+                // Refresh only what's due (channels 6 h, guide 12 h, films and
+                // series 24 h) — or everything when the market rules changed.
+                let due = await self.dueParts()
+                if !due.isEmpty {
+                    self.startBackgroundRefresh(client: client, providerID: providerID,
+                                                homeRegions: homeRegions, parts: due)
                 }
             }
             return
@@ -333,7 +352,8 @@ public final class AppEnvironment {
 
     /// Re-import in the background, updating rows in place so nothing on screen
     /// goes blank while it runs.
-    private func startBackgroundRefresh(client: any ProviderClient, providerID: String, homeRegions: Set<String>) {
+    private func startBackgroundRefresh(client: any ProviderClient, providerID: String,
+                                        homeRegions: Set<String>, parts: ImportParts = .all) {
         guard refreshTask == nil else { return }
         isRefreshing = true
         refreshTask = Task { [weak self] in
@@ -343,7 +363,7 @@ public final class AppEnvironment {
                                        providerID: providerID, homeRegions: homeRegions)
             do {
                 try await writer.begin(fresh: false)
-                try await client.fetchStaged(progress: .ignore) { stage in
+                try await client.fetchStaged(progress: .ignore, parts: parts) { stage in
                     try? await writer.ingest(stage)
                 }
                 guard !Task.isCancelled,
@@ -352,7 +372,7 @@ public final class AppEnvironment {
                 await self.applyPreferences()
                 self.vocabulary = await self.repository.searchVocabulary()
                 self.catalogRevision += 1
-                AppLog.app.info("Catalog refreshed in the background.")
+                AppLog.app.info("Catalog refreshed in the background (parts \(parts.rawValue, privacy: .public)).")
             } catch {
                 AppLog.provider.notice("Background refresh failed; keeping the existing catalog.")
             }

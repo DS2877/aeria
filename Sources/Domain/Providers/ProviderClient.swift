@@ -27,6 +27,37 @@ public enum RawStage: Sendable {
     case channels([RawChannel])
     case vod(movies: [RawVODItem], shells: [RawSeriesShell], episodes: [RawSeriesEpisode])
     case guide([RawEPGEvent])
+
+    public var part: ImportParts {
+        switch self {
+        case .channels: return .channels
+        case .vod:      return .vod
+        case .guide:    return .guide
+        }
+    }
+}
+
+/// Which parts of the catalogue an import refreshes. They change at very
+/// different rates — channels sometimes, the guide daily, films and series
+/// rarely — so background refreshes fetch only what's due.
+public struct ImportParts: OptionSet, Sendable, Hashable {
+    public let rawValue: Int
+    public init(rawValue: Int) { self.rawValue = rawValue }
+
+    public static let channels = ImportParts(rawValue: 1 << 0)
+    public static let vod      = ImportParts(rawValue: 1 << 1)
+    public static let guide    = ImportParts(rawValue: 1 << 2)
+    public static let all: ImportParts = [.channels, .vod, .guide]
+
+    /// Stable name, for per-part "last imported" stamps.
+    public var key: String {
+        switch self {
+        case .channels: return "channels"
+        case .vod:      return "vod"
+        case .guide:    return "guide"
+        default:        return "all"
+        }
+    }
 }
 
 /// The single seam every IPTV source implements. Everything above the
@@ -50,6 +81,14 @@ public protocol ProviderClient: Sendable {
         emit: @Sendable (RawStage) async -> Void
     ) async throws
 
+    /// Fetch only `parts` (a background refresh of what's due). A requirement,
+    /// so a provider's override is used even through `any ProviderClient`.
+    func fetchStaged(
+        progress: ImportProgressReporter,
+        parts: ImportParts,
+        emit: @Sendable (RawStage) async -> Void
+    ) async throws
+
     /// Resolve a playable URL for an item. For some providers this is a cheap
     /// passthrough; for others it hits the API. Called at playback time only.
     func resolveStreamURL(for providerItemKey: String, kind: ContentKind) async throws -> URL
@@ -65,6 +104,19 @@ public extension ProviderClient {
     /// Convenience for callers that don't need progress.
     func fetchRawCatalog() async throws -> RawCatalog {
         try await fetchRawCatalog(progress: .ignore)
+    }
+
+    /// Only the given parts. Default: a full staged fetch with the unwanted
+    /// stages dropped (correct, not cheaper) — providers that can skip whole
+    /// requests (Xtream) override it.
+    func fetchStaged(
+        progress: ImportProgressReporter,
+        parts: ImportParts,
+        emit: @Sendable (RawStage) async -> Void
+    ) async throws {
+        try await fetchStaged(progress: progress) { stage in
+            if parts.contains(stage.part) { await emit(stage) }
+        }
     }
 
     func fetchStaged(

@@ -183,6 +183,25 @@ public final class CatalogDatabase: @unchecked Sendable {
         return Date(timeIntervalSince1970: seconds)
     }
 
+    /// When one part was last refreshed; falls back to the whole-import stamp
+    /// for libraries imported before per-part stamps existed.
+    public func importedAt(_ part: ImportParts) async -> Date? {
+        if let text = await rawMeta(MetaKey.importedAt + "." + part.key), let seconds = Double(text) {
+            return Date(timeIntervalSince1970: seconds)
+        }
+        return await importedAt()
+    }
+
+    /// Guide ids of the stored channels — a guide-only refresh keeps just
+    /// these channels' programmes.
+    public func channelEPGIDs() async throws -> Set<String> {
+        try await read { conn in
+            Set(try conn.query("SELECT DISTINCT epg_id FROM channel WHERE epg_id IS NOT NULL AND epg_id <> ''") {
+                $0.string(0)
+            })
+        }
+    }
+
     /// The generation number the next import should stamp its rows with.
     public func nextGeneration() async -> Int {
         (await intMeta(MetaKey.importGeneration)) + 1
@@ -1319,11 +1338,18 @@ public final class CatalogDatabase: @unchecked Sendable {
 
     /// End an import: delete every row an earlier generation left behind
     /// (provider-removed titles, aged-out EPG), then commit the new generation.
-    public func finishGeneration(_ generation: Int) async throws {
+    /// Prune rows an earlier generation left behind — but only in the parts
+    /// this import actually refreshed. A channels-only refresh must not delete
+    /// every film because the films weren't re-stamped.
+    public func finishGeneration(_ generation: Int, parts: ImportParts = .all) async throws {
         let gen = Int64(generation)
+        var tables: [String] = []
+        if parts.contains(.channels) { tables.append("channel") }
+        if parts.contains(.vod) { tables += ["movie", "series", "episode"] }
+        if parts.contains(.guide) { tables.append("epg_event") }
         try await write { conn -> Void in
             try conn.transaction { () -> Void in
-                for table in ["channel", "movie", "series", "episode", "epg_event"] {
+                for table in tables {
                     _ = try conn.run("DELETE FROM \(table) WHERE gen <> ?", [.integer(gen)])
                 }
                 _ = try conn.run("DELETE FROM movie_genre WHERE movie_id NOT IN (SELECT id FROM movie)")

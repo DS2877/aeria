@@ -21,6 +21,8 @@ public actor CatalogWriter {
     /// EPG ids of the channels this import kept — guide data for dropped
     /// (foreign-market) channels is skipped too.
     private var keptEPGIDs: Set<String> = []
+    /// The parts this import has ingested — `finish()` prunes only these.
+    private var ingested: ImportParts = []
 
     private var channelCount = 0
     private var movieCount = 0
@@ -50,14 +52,27 @@ public actor CatalogWriter {
     }
 
     public func finish() async throws {
-        try await database.finishGeneration(generation)
+        try await database.finishGeneration(generation, parts: ingested)
         try await database.refreshFacetCache()
-        try await database.setMeta(CatalogDatabase.MetaKey.relevanceRules, RelevanceFilter.rulesVersion)
-        try await database.setMeta(CatalogDatabase.MetaKey.channelCount, String(channelCount))
-        try await database.setMeta(CatalogDatabase.MetaKey.movieCount, String(movieCount))
-        try await database.setMeta(CatalogDatabase.MetaKey.seriesCount, String(seriesCount))
-        try await database.setMeta(CatalogDatabase.MetaKey.epgCount, String(epgCount))
-        try await database.setMeta(CatalogDatabase.MetaKey.importedAt, String(Date().timeIntervalSince1970))
+        let now = String(Date().timeIntervalSince1970)
+        // Rules apply per row at import — only a full import re-filters it all.
+        if ingested == .all {
+            try await database.setMeta(CatalogDatabase.MetaKey.relevanceRules, RelevanceFilter.rulesVersion)
+        }
+        if ingested.contains(.channels) {
+            try await database.setMeta(CatalogDatabase.MetaKey.channelCount, String(channelCount))
+        }
+        if ingested.contains(.vod) {
+            try await database.setMeta(CatalogDatabase.MetaKey.movieCount, String(movieCount))
+            try await database.setMeta(CatalogDatabase.MetaKey.seriesCount, String(seriesCount))
+        }
+        if ingested.contains(.guide) {
+            try await database.setMeta(CatalogDatabase.MetaKey.epgCount, String(epgCount))
+        }
+        for part in [ImportParts.channels, .vod, .guide] where ingested.contains(part) {
+            try await database.setMeta(CatalogDatabase.MetaKey.importedAt + "." + part.key, now)
+        }
+        try await database.setMeta(CatalogDatabase.MetaKey.importedAt, now)
         try await database.setMeta(CatalogDatabase.MetaKey.importComplete, "1")
         try? await database.optimize()
     }
@@ -65,6 +80,7 @@ public actor CatalogWriter {
     // MARK: - Staged ingest
 
     public func ingest(_ stage: RawStage) async throws {
+        ingested.insert(stage.part)
         switch stage {
         case .channels(let raw):
             try await ingestChannels(raw)
@@ -140,8 +156,11 @@ public actor CatalogWriter {
 
     private func ingestGuide(_ raw: [RawEPGEvent]) async throws {
         let window = EPGWindow.current()
-        // Only guide data for channels this import kept. (Empty = no channel
-        // stage ran in this writer; keep everything rather than guess.)
+        // Only guide data for kept channels: this import's, or — on a
+        // guide-only refresh — the ones already in the store.
+        if keptEPGIDs.isEmpty {
+            keptEPGIDs = (try? await database.channelEPGIDs()) ?? []
+        }
         let keep = keptEPGIDs
         for chunk in raw.chunked(Self.epgChunk) {
             var events = await normalizer.normalizeGuide(chunk)
