@@ -36,6 +36,8 @@ struct PlayerScreen: View {
     @State private var currentLineup: ChannelLineup?
     @State private var showChannelPanel = false
     @State private var banner: ChannelBanner.Info?
+    /// "On now" for the Info panel's channel strip.
+    @State private var infoNow: [CatalogID: String] = [:]
 
     private var canZap: Bool {
         (currentLineup?.channels.count ?? 0) > 1 && makePlayback != nil
@@ -135,7 +137,15 @@ struct PlayerScreen: View {
                             previous: { zap(offset: -1) }
                         ) : nil,
                         onSleep: item.isLive ? nil : { model.setSleepTimer(minutes: $0) },
-                        allowsSpeeds: !item.isLive
+                        allowsSpeeds: !item.isLive,
+                        infoChannels: canZap ? currentLineup.map { lineup in
+                            SystemPlayerView.InfoChannels(
+                                channels: lineup.channels,
+                                currentID: model.activeItem.id,
+                                nowByID: infoNow,
+                                pick: { switchTo($0) }
+                            )
+                        } : nil
                     )
                     .ignoresSafeArea()
 
@@ -192,6 +202,11 @@ struct PlayerScreen: View {
             }
         }
         .onDisappear { model?.teardown() }
+        .task {
+            // Fill the Info panel's channel strip with what's on.
+            guard canZap, let nowTexts, let lineup = currentLineup ?? lineup else { return }
+            infoNow = await nowTexts(Array(lineup.channels.prefix(200)))
+        }
         .task(id: banner?.id) {
             guard banner != nil else { return }
             try? await Task.sleep(for: .seconds(4))
@@ -325,6 +340,15 @@ struct SystemPlayerView: UIViewControllerRepresentable {
     var onSleep: ((Int?) -> Void)? = nil
     /// Offer playback speeds (VOD only).
     var allowsSpeeds = false
+    /// Live TV: a "Channels" tab in the swipe-down Info panel.
+    var infoChannels: InfoChannels? = nil
+
+    struct InfoChannels {
+        var channels: [Channel]
+        var currentID: CatalogID
+        var nowByID: [CatalogID: String]
+        var pick: (Channel) -> Void
+    }
 
     struct ChannelActions {
         var openList: () -> Void
@@ -337,6 +361,7 @@ struct SystemPlayerView: UIViewControllerRepresentable {
     final class Coordinator {
         var actions: ChannelActions?
         var onSleep: ((Int?) -> Void)?
+        var channelHost: UIHostingController<InfoPanelChannels>?
         init(actions: ChannelActions?, onSleep: ((Int?) -> Void)?) {
             self.actions = actions
             self.onSleep = onSleep
@@ -379,12 +404,28 @@ struct SystemPlayerView: UIViewControllerRepresentable {
         if !items.isEmpty {
             controller.transportBarCustomMenuItems = items
         }
+
+        if let info = infoChannels {
+            let host = UIHostingController(rootView: Self.channelStrip(info))
+            host.title = "Channels"
+            host.preferredContentSize = CGSize(width: 1920, height: 240)
+            controller.customInfoViewControllers = [host]
+            coordinator.channelHost = host
+        }
         return controller
+    }
+
+    private static func channelStrip(_ info: InfoChannels) -> InfoPanelChannels {
+        InfoPanelChannels(channels: info.channels, currentID: info.currentID,
+                          nowByID: info.nowByID, onPick: info.pick)
     }
 
     func updateUIViewController(_ controller: AVPlayerViewController, context: Context) {
         context.coordinator.actions = channelActions
         context.coordinator.onSleep = onSleep
+        if let info = infoChannels {
+            context.coordinator.channelHost?.rootView = Self.channelStrip(info)
+        }
         if controller.player !== player {
             controller.player = player
         }

@@ -138,3 +138,61 @@ struct ChannelZapPanel: View {
         .accessibilityAddTraits(channel.id == lineup.currentID ? [.isButton, .isSelected] : .isButton)
     }
 }
+
+/// The "Channels" tab in the player's own Info panel (swipe down while
+/// watching live TV): a strip of channels with what's on, the current one
+/// marked. Click one to switch — the video never stops.
+struct InfoPanelChannels: View {
+    let channels: [Channel]
+    let currentID: CatalogID
+    let nowByID: [CatalogID: String]
+    let onPick: (Channel) -> Void
+
+    var body: some View {
+        ScrollViewReader { proxy in
+            ScrollView(.horizontal, showsIndicators: false) {
+                LazyHStack(spacing: Metrics.space3) {
+                    ForEach(channels) { channel in
+                        Button { onPick(channel) } label: { cell(channel) }
+                            .buttonStyle(.card)
+                            .id(channel.id)
+                            .accessibilityLabel(channel.name + (nowByID[channel.id].map { ", \($0)" } ?? ""))
+                    }
+                }
+                .padding(.horizontal, Metrics.space6)
+                .padding(.vertical, Metrics.space4)
+            }
+            .onAppear { proxy.scrollTo(currentID, anchor: .center) }
+            .onChange(of: currentID) { _, id in proxy.scrollTo(id, anchor: .center) }
+        }
+    }
+
+    private func cell(_ channel: Channel) -> some View {
+        let current = channel.id == currentID
+        return VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: Metrics.space1) {
+                if channel.sortIndex > 0 {
+                    Text("\(channel.sortIndex)")
+                        .font(.dsTag)
+                        .foregroundStyle(Palette.textTertiary)
+                        .monospacedDigit()
+                }
+                Text(channel.name)
+                    .font(.dsCardTitle)
+                    .foregroundStyle(Palette.textPrimary)
+                    .lineLimit(1)
+            }
+            Text(nowByID[channel.id] ?? channel.category)
+                .font(.dsCaption)
+                .foregroundStyle(Palette.textSecondary)
+                .lineLimit(1)
+            Text(current ? "WATCHING" : " ")
+                .font(.dsTag)
+                .tracking(Metrics.eyebrowTracking)
+                .foregroundStyle(Palette.accent)
+        }
+        .padding(Metrics.space2)
+        .frame(width: 320, alignment: .leading)
+        .background(current ? Palette.accentSoft : .clear)
+    }
+}
