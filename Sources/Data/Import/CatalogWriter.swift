@@ -18,6 +18,10 @@ public actor CatalogWriter {
     /// The generation this import stamps. Resolved in `begin()`.
     private var generation = 1
 
+    /// EPG ids of the channels this import kept — guide data for dropped
+    /// (foreign-market) channels is skipped too.
+    private var keptEPGIDs: Set<String> = []
+
     private var channelCount = 0
     private var movieCount = 0
     private var seriesCount = 0
@@ -48,6 +52,7 @@ public actor CatalogWriter {
     public func finish() async throws {
         try await database.finishGeneration(generation)
         try await database.refreshFacetCache()
+        try await database.setMeta(CatalogDatabase.MetaKey.relevanceRules, RelevanceFilter.rulesVersion)
         try await database.setMeta(CatalogDatabase.MetaKey.channelCount, String(channelCount))
         try await database.setMeta(CatalogDatabase.MetaKey.movieCount, String(movieCount))
         try await database.setMeta(CatalogDatabase.MetaKey.seriesCount, String(seriesCount))
@@ -70,42 +75,77 @@ public actor CatalogWriter {
         }
     }
 
+    // Swedish market only: foreign-market sections are dropped before they're
+    // normalised, and every normalised row must pass `RelevanceFilter` — what
+    // fails never reaches the store, so no screen or search can show it.
+
     private func ingestChannels(_ raw: [RawChannel]) async throws {
-        for chunk in raw.chunked(Self.channelChunk) {
+        let wanted = raw.filter { !RelevanceFilter.isForeignSection($0.groupTitle) }
+        for chunk in wanted.chunked(Self.channelChunk) {
             let channels = await normalizer.normalizeChannels(chunk, providerID: providerID)
+                .filter { Self.isRelevant($0) }
             try await database.insertChannels(channels, homeRegions: homeRegions, generation: generation)
+            keptEPGIDs.formUnion(channels.compactMap(\.epgID))
             channelCount += channels.count
         }
     }
 
     private func ingestVOD(movies: [RawVODItem], shells: [RawSeriesShell], episodes: [RawSeriesEpisode]) async throws {
+        let movies = movies.filter { !RelevanceFilter.isForeignSection($0.groupTitle) }
+        let shells = shells.filter { !RelevanceFilter.isForeignSection($0.groupTitle) }
+        let episodes = episodes.filter { !RelevanceFilter.isForeignSection($0.groupTitle) }
+
         for chunk in movies.chunked(Self.vodChunk) {
             let result = await normalizer.normalizeVOD(movies: chunk, shells: [], episodes: [], providerID: providerID)
-            try await database.insertMovies(result.movies, generation: generation)
-            movieCount += result.movies.count
+            let kept = result.movies.filter { Self.isRelevant($0) }
+            try await database.insertMovies(kept, generation: generation)
+            movieCount += kept.count
         }
 
         if !shells.isEmpty {
             for chunk in shells.chunked(Self.vodChunk) {
                 let result = await normalizer.normalizeVOD(movies: [], shells: chunk, episodes: [], providerID: providerID)
-                try await database.insertSeries(result.series, generation: generation)
-                seriesCount += result.series.count
+                let kept = result.series.filter { Self.isRelevant($0) }
+                try await database.insertSeries(kept, generation: generation)
+                seriesCount += kept.count
             }
         }
 
         if !episodes.isEmpty {
             let result = await normalizer.normalizeVOD(movies: [], shells: [], episodes: episodes, providerID: providerID)
-            for chunk in result.series.chunked(500) {
+            let kept = result.series.filter { Self.isRelevant($0) }
+            for chunk in kept.chunked(500) {
                 try await database.insertSeries(chunk, generation: generation)
             }
-            seriesCount += result.series.count
+            seriesCount += kept.count
         }
+    }
+
+    private static func isRelevant(_ c: Channel) -> Bool {
+        RelevanceFilter.isRelevant(countryCode: c.countryCode, name: c.name, category: c.category,
+                                   audioLanguages: c.audioLanguages, subtitleLanguages: c.subtitleLanguages)
+    }
+
+    private static func isRelevant(_ m: Movie) -> Bool {
+        RelevanceFilter.isRelevant(countryCode: m.countryCode, name: m.title,
+                                   category: m.genres.first?.displayName ?? "",
+                                   audioLanguages: m.audioLanguages, subtitleLanguages: m.subtitleLanguages)
+    }
+
+    private static func isRelevant(_ s: Series) -> Bool {
+        RelevanceFilter.isRelevant(countryCode: s.countryCode, name: s.title,
+                                   category: s.genres.first?.displayName ?? "",
+                                   audioLanguages: s.audioLanguages, subtitleLanguages: s.subtitleLanguages)
     }
 
     private func ingestGuide(_ raw: [RawEPGEvent]) async throws {
         let window = EPGWindow.current()
+        // Only guide data for channels this import kept. (Empty = no channel
+        // stage ran in this writer; keep everything rather than guess.)
+        let keep = keptEPGIDs
         for chunk in raw.chunked(Self.epgChunk) {
-            let events = await normalizer.normalizeGuide(chunk)
+            var events = await normalizer.normalizeGuide(chunk)
+            if !keep.isEmpty { events = events.filter { keep.contains($0.channelEPGID) } }
             try await database.insertEPG(events, window: window, generation: generation)
             epgCount += events.count
         }

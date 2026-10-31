@@ -11,36 +11,50 @@ final class RelevanceFilterTests: XCTestCase {
                                    audioLanguages: audio, subtitleLanguages: subs)
     }
 
-    func testKeepsNordicEnglishAndEuropeanCountryCodes() {
-        for c in ["SE", "NO", "DK", "FI", "IS", "GB", "IE", "US",
-                  "DE", "FR", "ES", "IT", "PL", "NL", "GR", "RO", "PT", "HR"] {
+    func testKeepsSwedishMarketCountryCodes() {
+        for c in ["SE", "NO", "DK", "GB", "IE", "US", "CA", "AU", "NZ"] {
             XCTAssertTrue(keep(c), "\(c) should be kept")
         }
     }
 
-    func testDropsNonEuropeanCountryCodes() {
-        for c in ["AR", "TR", "IN", "SA", "BR", "RU", "BY", "CN", "NG", "SO", "IR", "PK"] {
+    func testDropsEverythingOutsideTheSwedishMarket() {
+        // Finland, Iceland and continental Europe are out too — the app is for
+        // the typical Swedish viewer.
+        for c in ["FI", "IS", "DE", "FR", "PL", "RO", "GR", "HR",
+                  "AR", "TR", "IN", "SA", "BR", "RU", "CN", "NG", "SO", "IR", "PK"] {
             XCTAssertFalse(keep(c), "\(c) should be dropped")
         }
     }
 
-    func testEnglishOrNordicAudioOrSubtitlesKeepsAnythingAnywhere() {
-        // "…unless it has english or swedish speak and text."
-        XCTAssertTrue(keep("SA", "MBC Persia", "Movies", subs: [.english]))
+    func testUnderstoodAudioOrSwedishSubtitlesKeepsItWhereverItsFrom() {
         XCTAssertTrue(keep("RU", "Kino", "Movies", audio: [.swedish]))
-        XCTAssertTrue(keep(nil, "MBC 2", "Arabic Movies", subs: [.swedish]))
         XCTAssertTrue(keep("TR", "Kanal D", "Series", audio: [.english]))
-        // Arabic audio only, no English/Nordic anywhere → still dropped.
+        XCTAssertTrue(keep("KR", "Squid Game", "Series", subs: [.swedish]))
+        XCTAssertTrue(keep("DE", "Dark", "Series", audio: [.danish]))
+        // English subtitles alone no longer do — that let foreign series through.
+        XCTAssertFalse(keep("SA", "MBC Persia", "Movies", subs: [.english]))
         XCTAssertFalse(keep("SA", "MBC 1", "News", audio: [.arabic]))
+    }
+
+    func testForeignSectionsAreOutEvenWithSwedishSubtitles() {
+        // Providers stamp "MULTI SUB" on whole foreign sections.
+        XCTAssertFalse(keep(nil, "MBC 2", "Arabic Movies", subs: [.swedish]))
+        XCTAssertFalse(keep(nil, "Some Film", "Turkish Series", subs: [.swedish]))
+    }
+
+    func testForeignScriptTitlesAreDropped() {
+        XCTAssertFalse(keep(nil, "مسلسل الحب", "Series", audio: [.english]))
+        XCTAssertFalse(keep(nil, "Первый канал", "General"))
+        XCTAssertFalse(keep(nil, "東京物語", "Movies", subs: [.swedish]))
+        // Latin with diacritics is fine.
+        XCTAssertTrue(keep(nil, "Amélie", "Movies"))
+        XCTAssertTrue(keep("SE", "Så som i himmelen", "Movies"))
     }
 
     func testUnknownCountryIsKeptWhenNoForeignMarker() {
         XCTAssertTrue(keep(nil, "beIN Sports 1 HD", "Sports"))
         XCTAssertTrue(keep(nil, "24/7 Friends", "Entertainment"))
         XCTAssertTrue(keep(nil, "Discovery Channel", "Documentary"))
-        // European-language markers no longer drop anything — Europe is kept.
-        XCTAssertTrue(keep(nil, "TVP Polska", "Polish"))
-        XCTAssertTrue(keep(nil, "Das Erste", "German"))
     }
 
     func testUnknownCountryIsDroppedOnAForeignMarker() {
@@ -49,6 +63,19 @@ final class RelevanceFilterTests: XCTestCase {
         XCTAssertFalse(keep(nil, "OSN Yahala", "Arabic Movies"))
         XCTAssertFalse(keep(nil, "Perviy Kanal", "Russian"))
         XCTAssertFalse(keep(nil, "Somali National TV", "Africa"))
+        // Continental-European sections are out for the Swedish market.
+        XCTAssertFalse(keep(nil, "TVP Polska", "Polish"))
+        XCTAssertFalse(keep(nil, "Das Erste", "German"))
+        XCTAssertFalse(keep(nil, "RTS 1", "Ex-Yu"))
+    }
+
+    func testForeignWordsInATitleNeedNoEvidenceOfUnderstoodAudio() {
+        // "Russian Doll" is an English series — the word alone isn't enough
+        // when the audio is known to be English…
+        XCTAssertTrue(keep(nil, "Russian Doll", "Series", audio: [.english]))
+        // …but a European-language *title* word never drops anything.
+        XCTAssertTrue(keep(nil, "The French Dispatch", "Movies"))
+        XCTAssertTrue(keep(nil, "German Shepherd Rescue", "Documentary"))
     }
 
     func testWholeWordMatchingAvoidsFalsePositives() {
@@ -56,6 +83,16 @@ final class RelevanceFilterTests: XCTestCase {
         XCTAssertTrue(keep(nil, "Indiana Jones Marathon", "Movies"))
         // "iran" must not match "Pirates"
         XCTAssertTrue(keep(nil, "Pirates of the Caribbean", "Movies"))
+    }
+
+    func testForeignSectionDetection() {
+        for section in ["Arabic Movies", "TR | Turkish Series", "Polish VOD", "Ex-Yu", "Hindi",
+                        "Deutschland | Filme", "أفلام عربية"] {
+            XCTAssertTrue(RelevanceFilter.isForeignSection(section), "\(section) should be foreign")
+        }
+        for section in ["Movies | Horror", "SE | Barn", "Netflix Series", "UK | Sports", nil] {
+            XCTAssertFalse(RelevanceFilter.isForeignSection(section), "\(section ?? "nil") should be kept")
+        }
     }
 
     func testPriorityRanksHomeThenNordicThenEuropeThenRest() {

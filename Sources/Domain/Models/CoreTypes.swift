@@ -87,11 +87,10 @@ public struct Language: Hashable, Codable, Sendable, Comparable {
     /// viewer can pick a preference the current library hasn't surfaced yet.
     /// Nordic + the major European languages, plus the ones that show up most in
     /// European IPTV bundles.
+    /// The Swedish market's languages — the only ones offered as audio /
+    /// subtitle preferences (Aeria+ is Swedish-market only).
     public static let commonPickerChoices: [Language] = [
-        .english, .swedish, .norwegian, .danish, .finnish, .icelandic,
-        .german, .dutch, .french, .spanish, .italian, .portuguese,
-        .polish, .czech, .greek, .hungarian, .romanian, .turkish,
-        .russian, .ukrainian, .arabic,
+        .swedish, .english, .norwegian, .danish,
     ]
 }
 

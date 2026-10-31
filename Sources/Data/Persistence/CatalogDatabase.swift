@@ -111,6 +111,8 @@ public final class CatalogDatabase: @unchecked Sendable {
         public static let movieCount = "movie_count"
         public static let seriesCount = "series_count"
         public static let epgCount = "epg_count"
+        /// `RelevanceFilter.rulesVersion` the stored library was filtered with.
+        public static let relevanceRules = "relevance_rules"
         // Facet cache — recomputed at the end of every import.
         public static let facetGenres = "facet_genres"
         public static let facetAudioLanguages = "facet_audio_langs"

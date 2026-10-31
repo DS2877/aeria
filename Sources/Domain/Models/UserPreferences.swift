@@ -68,10 +68,23 @@ public enum ChannelRegionScope: String, Codable, Sendable, CaseIterable, Identif
 
     public var id: String { rawValue }
 
+    /// The choices offered in Personalize. Aeria+ is Swedish-market only, so
+    /// the wider nets aren't offered; saved values from before are clamped by
+    /// `swedishMarket`.
+    public static let offered: [ChannelRegionScope] = [.homeCountry, .nordic]
+
+    /// This scope limited to what the Swedish market allows.
+    public var swedishMarket: ChannelRegionScope {
+        switch self {
+        case .homeCountry, .nordic: return self
+        case .european, .all:       return .nordic
+        }
+    }
+
     public var title: String {
         switch self {
         case .homeCountry: return "My country only"
-        case .nordic:      return "Nordic countries"
+        case .nordic:      return "Scandinavia"
         case .european:    return "Europe & English"
         case .all:         return "Everything"
         }
@@ -80,7 +93,7 @@ public enum ChannelRegionScope: String, Codable, Sendable, CaseIterable, Identif
     public var note: String {
         switch self {
         case .homeCountry: return "Just channels from your country, plus international feeds"
-        case .nordic:      return "Your country and the other Nordic countries"
+        case .nordic:      return "Swedish, Norwegian and Danish channels"
         case .european:    return "The Nordics, the English-speaking world and the rest of Europe"
         case .all:         return "No filter — every channel in the provider's list"
         }

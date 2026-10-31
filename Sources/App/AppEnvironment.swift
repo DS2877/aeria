@@ -126,9 +126,12 @@ public final class AppEnvironment {
     public func applyPreferences(bumpRevision: Bool = true) async {
         let prefs = preferences.preferences
         await repository.setHideAdult(prefs.hideAdultContent)
-        await repository.setRegionLimit(prefs.limitToRelevantRegions)
+        // Swedish market only — always on. (The import already drops foreign
+        // rows; this also hides any left in a library imported under older
+        // rules until its refresh lands.)
+        await repository.setRegionLimit(true)
         await repository.setHomeRegions(RelevanceFilter.homeRegions(for: prefs.preferredAudioLanguages))
-        await repository.setChannelRegionScope(prefs.channelRegionScope)
+        await repository.setChannelRegionScope(prefs.channelRegionScope.swedishMarket)
         await repository.setRecentChannels(channelHistory.recent())
         await aiService.setMode(prefs.aiAssistedSearch ? .assisted : .onDeviceOnly)
 
@@ -218,9 +221,9 @@ public final class AppEnvironment {
             // `applyPreferences` (the region-priority rewrite, recent channels,
             // API keys) behind the first frame.
             await repository.setHideAdult(preferences.preferences.hideAdultContent)
-            await repository.setRegionLimit(preferences.preferences.limitToRelevantRegions)
+            await repository.setRegionLimit(true)
             await repository.setHomeRegions(RelevanceFilter.homeRegions(for: preferences.preferences.preferredAudioLanguages))
-            await repository.setChannelRegionScope(preferences.preferences.channelRegionScope)
+            await repository.setChannelRegionScope(preferences.preferences.channelRegionScope.swedishMarket)
             loadState = .ready
             hasLoadedOnce = true
             catalogComplete = true
@@ -236,7 +239,10 @@ public final class AppEnvironment {
                 await self.writeTopShelfSnapshot()
 
                 let age = await self.database.importedAt().map { Date().timeIntervalSince($0) } ?? .infinity
-                if age > self.staleAfter {
+                // A library filtered under older market rules is re-imported in
+                // the background so foreign rows are pruned without a wipe.
+                let rules = (try? await self.database.metaValue(CatalogDatabase.MetaKey.relevanceRules)) ?? nil
+                if age > self.staleAfter || rules != RelevanceFilter.rulesVersion {
                     self.startBackgroundRefresh(client: client, providerID: providerID, homeRegions: homeRegions)
                 }
             }

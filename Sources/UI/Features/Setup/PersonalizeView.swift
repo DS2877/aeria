@@ -18,11 +18,11 @@ struct PersonalizeView: View {
         var id: String { String(describing: self) }
     }
 
-    /// The common European set is always offered; anything the library surfaced
-    /// (or the viewer has already picked) is merged in so nothing disappears.
-    private func languageChoices(detected: [Language]) -> [Language] {
-        let picked = working.preferredAudioLanguages + (working.preferredSubtitleLanguage.map { [$0] } ?? [])
-        return Array(Set(Language.commonPickerChoices + detected + picked)).sorted()
+    /// Swedish-market languages only. Whatever the library or an older
+    /// version surfaced (German audio on a Swedish-subbed film, say) isn't
+    /// offered — the picker is for the viewer's own languages.
+    private func languageChoices(detected _: [Language]) -> [Language] {
+        Language.commonPickerChoices
     }
 
     private var audioLanguages: [Language] {
@@ -74,25 +74,21 @@ struct PersonalizeView: View {
                         }
                     }
 
-                    PersonalizeSection("Live TV channels", "Which countries' channels appear in Live TV, the Guide and the Home live rows. Search always looks everywhere.") {
+                    PersonalizeSection("Live TV channels", "Which channels appear in Live TV, the Guide and the Home live rows.") {
                         LazyVGrid(columns: choiceColumns, alignment: .leading, spacing: Metrics.space2) {
-                            ForEach(ChannelRegionScope.allCases) { option in
+                            ForEach(ChannelRegionScope.offered) { option in
                                 ChoiceCard(title: option.title,
-                                           isSelected: working.channelRegionScope == option) {
+                                           isSelected: working.channelRegionScope.swedishMarket == option) {
                                     working.channelRegionScope = option
                                 }
                             }
                         }
-                        Text(working.channelRegionScope.note)
+                        Text(working.channelRegionScope.swedishMarket.note)
                             .font(.dsCaption).foregroundStyle(Palette.textTertiary)
                     }
 
                     PersonalizeSection("Playback & content", nil) {
                         VStack(spacing: Metrics.space2) {
-                            OptionRow(icon: "globe.europe.africa",
-                                      title: "Europe & English films only",
-                                      note: "Hides movies and series from other regions. Turn off to see the provider's full VOD catalogue. (Channels are set above.)",
-                                      isOn: working.limitToRelevantRegions) { working.limitToRelevantRegions.toggle() }
                             OptionRow(icon: "eye.slash",
                                       title: "Hide adult categories",
                                       note: "Keeps adult-flagged channels and titles out of Home, browsing and search.",
