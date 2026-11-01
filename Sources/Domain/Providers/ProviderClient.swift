@@ -27,12 +27,17 @@ public enum RawStage: Sendable {
     case channels([RawChannel])
     case vod(movies: [RawVODItem], shells: [RawSeriesShell], episodes: [RawSeriesEpisode])
     case guide([RawEPGEvent])
+    /// A first, partial guide (now/next for the main channels) sent before
+    /// the full guide arrives. Merged in; it never prunes anything, so it
+    /// belongs to no part.
+    case guidePreview([RawEPGEvent])
 
     public var part: ImportParts {
         switch self {
-        case .channels: return .channels
-        case .vod:      return .vod
-        case .guide:    return .guide
+        case .channels:     return .channels
+        case .vod:          return .vod
+        case .guide:        return .guide
+        case .guidePreview: return []
         }
     }
 }

@@ -336,7 +336,7 @@ public final class AppEnvironment {
                 loadState = .ready
                 hasLoadedOnce = true
             }
-        case .guide:
+        case .guide, .guidePreview:
             break
         }
         catalogRevision += 1

@@ -28,6 +28,7 @@ public struct M3UProviderClient: ProviderClient {
             case .vod(let m, let s, let e):
                 out.vod = m; out.seriesShells = s; out.seriesEpisodes = e
             case .guide(let g): out.epg = g
+            case .guidePreview: break
             }
         }
         return out

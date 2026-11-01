@@ -88,6 +88,8 @@ public actor CatalogWriter {
             try await ingestVOD(movies: movies, shells: shells, episodes: episodes)
         case .guide(let raw):
             try await ingestGuide(raw)
+        case .guidePreview(let raw):
+            try await ingestGuide(raw, counts: false)
         }
     }
 
@@ -154,7 +156,7 @@ public actor CatalogWriter {
                                    audioLanguages: s.audioLanguages, subtitleLanguages: s.subtitleLanguages)
     }
 
-    private func ingestGuide(_ raw: [RawEPGEvent]) async throws {
+    private func ingestGuide(_ raw: [RawEPGEvent], counts: Bool = true) async throws {
         let window = EPGWindow.current()
         // Only guide data for kept channels: this import's, or — on a
         // guide-only refresh — the ones already in the store.
@@ -166,7 +168,7 @@ public actor CatalogWriter {
             var events = await normalizer.normalizeGuide(chunk)
             if !keep.isEmpty { events = events.filter { keep.contains($0.channelEPGID) } }
             try await database.insertEPG(events, window: window, generation: generation)
-            epgCount += events.count
+            if counts { epgCount += events.count }
         }
     }
 

@@ -24,6 +24,20 @@ enum XtreamDTO {
         @LenientString var category_name: String?
     }
 
+    /// `get_short_epg` — now/next for one stream. Title and description are
+    /// base64 on most panels.
+    struct ShortEPG: Decodable, Sendable {
+        struct Listing: Decodable, Sendable {
+            @LenientString var title: String?
+            @LenientString var description: String?
+            @LenientString var channel_id: String?
+            @LenientString var epg_id: String?
+            @LenientInt var start_timestamp: Int?
+            @LenientInt var stop_timestamp: Int?
+        }
+        let epg_listings: [Listing]?
+    }
+
     struct LiveStream: Decodable, Sendable, XtreamCategorized {
         @LenientInt var stream_id: Int?
         @LenientString var name: String?

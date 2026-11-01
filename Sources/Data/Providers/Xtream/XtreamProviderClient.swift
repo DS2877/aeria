@@ -31,6 +31,7 @@ public struct XtreamProviderClient: ProviderClient {
             case .channels(let c): channels = c
             case .vod(let m, let s, _): movies = m; shells = s
             case .guide(let e): epg = e
+            case .guidePreview: break
             }
         }
         return RawCatalog(providerID: descriptor.id, channels: channels, vod: movies,
@@ -64,12 +65,24 @@ public struct XtreamProviderClient: ProviderClient {
         try await verifyAuth()
 
         var channelCount = 0, movieCount = 0, shellCount = 0
+        /// Guide ids of the kept channels — the XMLTV parse keeps only these.
+        var guideChannels: Set<String>?
 
         if parts.contains(.channels) {
             let channels = try await fetchLiveChannels()
             channelCount = channels.count
             progress.reached(.channels)
+            let kept = channels.filter { !RelevanceFilter.isForeignSection($0.groupTitle) }
+            guideChannels = Set(kept.compactMap(\.tvgID).filter { !$0.isEmpty })
             await emit(.channels(channels))
+
+            // Two-tier guide: now/next for the main channels right away (a
+            // few dozen tiny requests), so "on now" shows within seconds —
+            // the full XMLTV is the biggest download and comes last.
+            if parts.contains(.guide) {
+                let preview = await shortEPG(for: kept)
+                if !preview.isEmpty { await emit(.guidePreview(preview)) }
+            }
         }
 
         if parts.contains(.vod) {
@@ -89,7 +102,7 @@ public struct XtreamProviderClient: ProviderClient {
 
         if parts.contains(.guide) {
             progress.reached(.guide)
-            let epg = (try? await fetchEPG()) ?? []
+            let epg = (try? await fetchEPG(channels: guideChannels)) ?? []
             await emit(.guide(epg))
         }
 
@@ -293,11 +306,97 @@ public struct XtreamProviderClient: ProviderClient {
         }, uniquingKeysWith: { a, _ in a })
     }
 
-    private func fetchEPG() async throws -> [RawEPGEvent] {
-        // Stream the (often huge) XMLTV off disk and keep only the guide window,
-        // so import memory never scales with the size of the feed.
+    private func fetchEPG(channels: Set<String>?) async throws -> [RawEPGEvent] {
+        // Stream the (often huge) XMLTV off disk and keep only the guide window
+        // and the kept channels, so import memory never scales with the size
+        // of the feed.
         let file = try await http.downloadToFile(from: api.xmltvURL)
         defer { try? FileManager.default.removeItem(at: file) }
-        return try XMLTVParser.parse(fileURL: file, within: EPGWindow.current())
+        let filter = (channels?.isEmpty ?? true) ? nil : channels
+        return try XMLTVParser.parse(fileURL: file, within: EPGWindow.current(), channels: filter)
+    }
+
+    // MARK: - Short EPG (now/next preview)
+
+    /// How many channels get a now/next preview, and how many requests run at once.
+    static let previewChannelLimit = 60
+    private static let previewConcurrency = 8
+    /// The preview is a nicety — never hold the import up longer than this.
+    private static let previewDeadline: Duration = .seconds(8)
+
+    /// Now/next for the channels a Swedish viewer is most likely to look at
+    /// first: Swedish sections first, then by channel number.
+    func shortEPG(for channels: [RawChannel]) async -> [RawEPGEvent] {
+        let picks = Self.previewChannels(channels)
+        guard !picks.isEmpty else { return [] }
+        let http = self.http, api = self.api
+        return await withTaskGroup(of: [RawEPGEvent]?.self) { group in
+            group.addTask {
+                try? await Task.sleep(for: Self.previewDeadline)
+                return nil                                   // deadline marker
+            }
+            group.addTask {
+                await withTaskGroup(of: [RawEPGEvent].self) { inner in
+                    var it = picks.makeIterator()
+                    var running = 0
+                    while running < Self.previewConcurrency, let next = it.next() {
+                        inner.addTask { await Self.shortEPG(next, http: http, api: api) }
+                        running += 1
+                    }
+                    var all: [RawEPGEvent] = []
+                    for await events in inner {
+                        all += events
+                        if let next = it.next() {
+                            inner.addTask { await Self.shortEPG(next, http: http, api: api) }
+                        }
+                    }
+                    return all
+                }
+            }
+            let first = await group.next() ?? nil
+            group.cancelAll()
+            return first ?? []
+        }
+    }
+
+    static func previewChannels(_ channels: [RawChannel]) -> [(streamID: Int, tvgID: String)] {
+        func isSwedish(_ group: String?) -> Bool {
+            guard let g = group?.uppercased() else { return false }
+            let prefixes = ["SE|", "SE:", "SE ", "SE-", "SE_", "[SE]", "|SE|", "SE▎", "SE ▎"]
+            return prefixes.contains { g.hasPrefix($0) } || g.contains("SWEDEN") || g.contains("SVERIGE") || g.contains("SVENSK")
+        }
+        return channels
+            .compactMap { c -> (Bool, Int, Int, String)? in
+                guard let id = Int(c.providerKey), let tvg = c.tvgID, !tvg.isEmpty else { return nil }
+                return (isSwedish(c.groupTitle), c.channelNumber ?? Int.max, id, tvg)
+            }
+            .sorted { a, b in a.0 != b.0 ? a.0 : a.1 < b.1 }
+            .prefix(previewChannelLimit)
+            .map { (streamID: $0.2, tvgID: $0.3) }
+    }
+
+    private static func shortEPG(_ channel: (streamID: Int, tvgID: String),
+                                 http: HTTPClient, api: XtreamAPI) async -> [RawEPGEvent] {
+        guard let response = try? await http.decode(XtreamDTO.ShortEPG.self,
+                                                    from: api.shortEPGURL(streamID: channel.streamID, limit: 4))
+        else { return [] }
+        return (response.epg_listings ?? []).compactMap { item in
+            guard let start = item.start_timestamp, let stop = item.stop_timestamp, stop > start,
+                  let title = item.title.map(decodeBase64), !title.isEmpty else { return nil }
+            return RawEPGEvent(channelID: channel.tvgID,
+                               title: title,
+                               description: item.description.map(decodeBase64).flatMap { $0.isEmpty ? nil : $0 },
+                               start: Date(timeIntervalSince1970: TimeInterval(start)),
+                               stop: Date(timeIntervalSince1970: TimeInterval(stop)))
+        }
+    }
+
+    /// Panels send base64; a few send plain text.
+    static func decodeBase64(_ raw: String) -> String {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let data = Data(base64Encoded: trimmed), let text = String(data: data, encoding: .utf8) {
+            return text.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        return trimmed
     }
 }

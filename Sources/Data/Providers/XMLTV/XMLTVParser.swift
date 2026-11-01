@@ -22,7 +22,10 @@ public enum XMLTVParser {
     }
 
     /// Stream-parse from a file on disk — for the (usually huge) provider EPG.
-    public static func parse(fileURL: URL, within window: DateInterval?) throws -> [RawEPGEvent] {
+    /// `channels`, when given, keeps only programmes for those channel ids —
+    /// the rest of a provider-wide feed is skipped while parsing, never stored.
+    public static func parse(fileURL: URL, within window: DateInterval?,
+                             channels: Set<String>? = nil) throws -> [RawEPGEvent] {
         if let magic = try? Data(contentsOf: fileURL, options: .mappedIfSafe).prefix(2),
            Array(magic) == [0x1f, 0x8b] as [UInt8] {
             throw ProviderError.playlistMalformed(reason: "EPG is a gzip file; not yet supported")
@@ -30,11 +33,13 @@ public enum XMLTVParser {
         guard let stream = InputStream(url: fileURL) else {
             throw ProviderError.playlistMalformed(reason: "cannot open EPG file")
         }
-        return try run(XMLParser(stream: stream), window: window)
+        return try run(XMLParser(stream: stream), window: window, channels: channels)
     }
 
-    private static func run(_ parser: XMLParser, window: DateInterval?) throws -> [RawEPGEvent] {
+    private static func run(_ parser: XMLParser, window: DateInterval?,
+                            channels: Set<String>? = nil) throws -> [RawEPGEvent] {
         let delegate = Delegate(window: window)
+        delegate.channelFilter = channels
         parser.delegate = delegate
         guard parser.parse() else {
             throw ProviderError.playlistMalformed(reason: "invalid XMLTV")
@@ -46,6 +51,7 @@ public enum XMLTVParser {
 
     private final class Delegate: NSObject, XMLParserDelegate {
         private(set) var events: [RawEPGEvent] = []
+        var channelFilter: Set<String>?
 
         private let windowStart: Date?
         private let windowEnd: Date?
@@ -100,7 +106,8 @@ public enum XMLTVParser {
                     namespaceURI: String?, qualifiedName qName: String?) {
             if elementName == "programme" {
                 if let channel = currentChannel, let start = currentStart, let stop = currentStop,
-                   stop > start, overlapsWindow(start: start, stop: stop) {
+                   stop > start, overlapsWindow(start: start, stop: stop),
+                   channelFilter?.contains(channel) ?? true {
                     events.append(RawEPGEvent(
                         channelID: channel,
                         title: title.trimmingCharacters(in: .whitespacesAndNewlines).ifEmpty("Programme"),

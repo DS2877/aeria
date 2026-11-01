@@ -16,6 +16,7 @@ struct XtreamAPI: Sendable {
         case seriesCategories = "get_series_categories"
         case series = "get_series"
         case seriesInfo = "get_series_info"
+        case shortEPG = "get_short_epg"
     }
 
     init?(host: String, username: String, password: String) {
@@ -54,6 +55,11 @@ struct XtreamAPI: Sendable {
     }
     func seriesInfoURL(seriesID: String) -> URL {
         apiURL(action: .seriesInfo, extra: [URLQueryItem(name: "series_id", value: seriesID)])
+    }
+    /// Now/next (and a few after) for one live stream.
+    func shortEPGURL(streamID: Int, limit: Int) -> URL {
+        apiURL(action: .shortEPG, extra: [URLQueryItem(name: "stream_id", value: String(streamID)),
+                                          URLQueryItem(name: "limit", value: String(limit))])
     }
     var xmltvURL: URL {
         var c = URLComponents(url: origin.appendingPathComponent("xmltv.php"),
