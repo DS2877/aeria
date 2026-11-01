@@ -40,6 +40,8 @@ Swedish summary for the owner at the bottom.
 |---|---|---|---|
 | D1 | "More Like This": the title sits inside the focusable card, so it's clipped when the card lifts ("he Last Man on Earth"), and the first card is clipped at the left edge. | P2 | Done (CI) |
 | D2 | Series: season picker, runtimes, progress and watched marks are good. | — | OK |
+| D3 | Series page showed a spinner until the provider returned the episode list (a network call on first open). Now paints at once; episodes fill in. Hovering a card ~0.5 s pre-loads its episodes, TMDB details and backdrop. | P1 | Done (CI) |
+| D4 | Back deep in the Movies/Series grid went straight to the sidebar. Now first jumps to the top of the grid. | P2 | Done (CI) |
 
 ## Player
 

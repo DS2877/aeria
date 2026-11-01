@@ -299,6 +299,11 @@ struct HomeView: View {
                 action: { activate(card) }
             )
             .contextMenu { resumeMenu(for: card) }
+            .onCardFocused {
+                // Get the detail page ready while the viewer hovers.
+                guard card.resumeItemID == nil else { return }
+                environment.warmUp(card.kind == .series ? .series(card.id) : .movie(card.id))
+            }
         }
     }
 

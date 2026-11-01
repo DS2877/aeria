@@ -47,27 +47,42 @@ struct SeriesDetailView: View {
         // countdown via `nextItem`), so there's no close-and-reopen here.
     }
 
+    /// Paint first, fill in after: the page shows the moment the catalog row
+    /// is read. Episodes (a provider request on first open), related titles
+    /// and TMDB details all arrive in parallel behind it.
     private func load() async {
-        var found = await env.repository.series(id: seriesID)
+        let found = await env.repository.series(id: seriesID)
         notFound = found == nil && env.catalogComplete
-        if let loaded = found, !loaded.hasEpisodes {
-            loadingEpisodes = true
-            found = await env.ensureEpisodes(forSeries: seriesID)
-            loadingEpisodes = false
-        }
-        series = found
-        selectedSeason = resumeEpisode(in: found)?.seasonNumber ?? found?.seasons.first?.number
         guard let found else { return }
+        series = found
+        selectedSeason = resumeEpisode(in: found)?.seasonNumber ?? found.seasons.first?.number
+
+        async let relatedPicks = relatedSeries(to: found)
+        async let details = env.metadata.details(
+            for: found.id, title: found.title, year: found.year, isSeries: true
+        )
+        if !found.hasEpisodes {
+            loadingEpisodes = true
+            let withEpisodes = await env.ensureEpisodes(forSeries: seriesID)
+            loadingEpisodes = false
+            if let withEpisodes, !Task.isCancelled {
+                series = withEpisodes
+                selectedSeason = resumeEpisode(in: withEpisodes)?.seasonNumber
+                    ?? withEpisodes.seasons.first?.number
+            }
+        }
+        related = await relatedPicks
+        enriched = await details
+    }
+
+    private func relatedSeries(to found: Series) async -> [RelatedItem] {
         var picks = await env.repository
             .similarSeries(to: found.id, genres: found.genres, limit: 18)
         if picks.isEmpty {
             picks = await env.repository.newestSeries(limit: 18).filter { $0.id != found.id }
         }
-        related = picks.map { RelatedItem(id: $0.id, title: $0.title, year: $0.year,
-                                          posterURL: $0.posterURL, isSeries: true) }
-        enriched = await env.metadata.details(
-            for: found.id, title: found.title, year: found.year, isSeries: true
-        )
+        return picks.map { RelatedItem(id: $0.id, title: $0.title, year: $0.year,
+                                       posterURL: $0.posterURL, isSeries: true) }
     }
 
     /// The very first episode — first season by number, first episode by number.

@@ -38,11 +38,16 @@ struct MovieDetailView: View {
         }
     }
 
+    /// The page shows as soon as the catalog row is read; related titles and
+    /// TMDB details load in parallel behind it.
     private func load() async {
         let found = await env.repository.movie(id: movieID)
         movie = found
         notFound = found == nil && env.catalogComplete
         guard let found else { return }
+        async let details = env.metadata.details(
+            for: found.id, title: found.title, year: found.year, isSeries: false
+        )
         var picks = await env.repository
             .similarMovies(to: found.id, genres: found.genres, limit: 18)
         if picks.isEmpty {
@@ -51,9 +56,7 @@ struct MovieDetailView: View {
         }
         related = picks.map { RelatedItem(id: $0.id, title: $0.title, year: $0.year,
                                           posterURL: $0.posterURL, isSeries: false) }
-        enriched = await env.metadata.details(
-            for: found.id, title: found.title, year: found.year, isSeries: false
-        )
+        enriched = await details
     }
 
     @ViewBuilder

@@ -229,6 +229,7 @@ struct SearchView: View {
                    ref: ArtworkRef(id: m.id, title: m.title, year: m.year, isSeries: false),
                    isNew: CatalogFreshness.isNew(m.addedAt),
                    action: { open(.movie(m.id), model) })
+            .onCardFocused { env.warmUp(.movie(m.id)) }
     }
 
     private func seriesCard(_ s: Series, _ model: SearchViewModel) -> some View {
@@ -238,6 +239,7 @@ struct SearchView: View {
                    ref: ArtworkRef(id: s.id, title: s.title, year: s.year, isSeries: true),
                    isNew: CatalogFreshness.isNew(s.addedAt),
                    action: { open(.series(s.id), model) })
+            .onCardFocused { env.warmUp(.series(s.id)) }
     }
 
     private func open(_ route: AppRoute, _ model: SearchViewModel) {

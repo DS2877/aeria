@@ -8,6 +8,18 @@ struct VODBrowseView: View {
     @State private var model: VODBrowseViewModel?
     @State private var showFilters = false
     @State private var path: [AppRoute] = []
+    /// Index of the focused card — Menu deep in the grid jumps to the top
+    /// first (the Apple TV convention), then a second Menu opens the sidebar.
+    /// Only flips when crossing the first row, so moving around the grid
+    /// doesn't re-render the screen on every focus change.
+    @State private var isDeepInGrid = false
+    /// Bumped to send focus to the first card (the same mechanism a sidebar
+    /// click uses).
+    @State private var topToken = 0
+    /// Bumped just after the scroll to the top, once the first card exists
+    /// again (the lazy grid drops cards far off screen).
+    @State private var focusTopToken = 0
+    @Environment(\.sectionDiveToken) private var shellDiveToken
 
     private let columns = Array(repeating: GridItem(.fixed(Metrics.posterWidth), spacing: Metrics.cardSpacing),
                                 count: 5)
@@ -22,7 +34,7 @@ struct VODBrowseView: View {
                 }
             }
             .appThemeBackground()
-            .menuReturnsToSidebar()
+            .menuReturnsToSidebar(first: menuAction)
             .appRouteDestinations()
         }
         // Keyed on the store's generation so a provider switch re-fetches the
@@ -52,6 +64,18 @@ struct VODBrowseView: View {
             models.markLoaded(kind == .movies ? .movies : .series, revision: revision)
             model?.scheduleReload()
         }
+    }
+
+    /// Deep in the grid, Menu goes back to the first card; otherwise the
+    /// default (the sidebar).
+    private var menuAction: (() -> Void)? {
+        guard isDeepInGrid else { return nil }
+        return { backToTop() }
+    }
+
+    private func backToTop() {
+        isDeepInGrid = false
+        topToken &+= 1
     }
 
     private func prefetchPosters(_ model: VODBrowseViewModel) {
@@ -101,6 +125,11 @@ struct VODBrowseView: View {
                                     action: { path.append(card.route) }
                                 )
                                 .sectionEntryFocus(card.id == model.cards.first?.id)
+                                .onCardFocused {
+                                    let deep = (model.cards.firstIndex(where: { $0.id == card.id }) ?? 0) >= columns.count
+                                    if deep != isDeepInGrid { isDeepInGrid = deep }
+                                    env.warmUp(card.route)
+                                }
                                 .id(card.id)
                                 .task { await model.loadMoreIfNeeded(currentItem: card) }
                             }
@@ -112,6 +141,14 @@ struct VODBrowseView: View {
             }
             .scrollClipDisabled()
             .focusSection()
+            .environment(\.sectionDiveToken, shellDiveToken &+ focusTopToken)
+        }
+        .onChange(of: topToken) { _, _ in
+            withAnimation(.easeInOut(duration: 0.25)) { proxy.scrollTo("vod-top", anchor: .top) }
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(180))
+                focusTopToken &+= 1
+            }
         }
         .onChange(of: model.filter) { old, new in
             // A narrowing change (genre / language / year) resets the list —

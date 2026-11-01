@@ -148,7 +148,7 @@ public final class VODBrowseViewModel {
     public func loadMoreIfNeeded(currentItem: BrowseCard) async {
         guard canLoadMore, !isLoading,
               let idx = cards.firstIndex(where: { $0.id == currentItem.id }),
-              idx >= cards.count - 12
+              idx >= cards.count - 25
         else { return }
         await loadPage(replacing: false, filter: filter)
     }
@@ -169,6 +169,8 @@ public final class VODBrowseViewModel {
         guard !Task.isCancelled, filter == self.filter else { return }
 
         if replacing { cards = newCards } else { cards.append(contentsOf: newCards) }
+        // Decode the next screenful's posters before they scroll into view.
+        ImageCache.shared.prefetch(newCards.prefix(30).compactMap(\.posterURL))
         page += 1
         canLoadMore = newCards.count == pageSize
     }

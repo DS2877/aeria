@@ -130,7 +130,9 @@ final class HomeScreenshotTests: XCTestCase {
             sleep(2)
             snap("30-click-\(name)")
             noteFocus(app, "click \(name)")
-            remote.press(.left)      // back to the rail (lands on the same item)
+            // Back to the rail, landing on the same item. In the Guide ← moves
+            // back in time, so Menu is the way out there.
+            remote.press(name == "guide" ? .menu : .left)
             sleep(2)
             noteFocus(app, "left after \(name)")
         }

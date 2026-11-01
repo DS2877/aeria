@@ -431,6 +431,53 @@ public final class AppEnvironment {
 
     /// Load episodes for a series that was imported as a shell (Xtream).
     public func ensureEpisodes(forSeries id: CatalogID) async -> Series? {
+        // One provider request per series, however many callers (focus warm-up
+        // and the detail page opening) ask at once.
+        if let running = episodeLoads[id] { return await running.value }
+        let task = Task<Series?, Never> { @MainActor [weak self] in
+            await self?.loadEpisodes(forSeries: id)
+        }
+        episodeLoads[id] = task
+        let result = await task.value
+        episodeLoads[id] = nil
+        return result
+    }
+
+    private var episodeLoads: [CatalogID: Task<Series?, Never>] = [:]
+    private var warmTask: Task<Void, Never>?
+
+    /// A card has had focus for a moment: get its detail page ready before the
+    /// click — episodes from the provider (series), TMDB details and the
+    /// backdrop image — so the page opens complete instead of filling in.
+    /// Only the latest focused card is warmed; moving on cancels the wait.
+    public func warmUp(_ route: AppRoute) {
+        warmTask?.cancel()
+        warmTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .milliseconds(450))
+            guard let self, !Task.isCancelled else { return }
+            switch route {
+            case .series(let id):
+                guard let series = await self.repository.series(id: id) else { return }
+                if let url = series.backdropURL ?? series.posterURL { ImageCache.shared.prefetch([url], size: .backdrop) }
+                guard !Task.isCancelled else { return }
+                if !series.hasEpisodes { _ = await self.ensureEpisodes(forSeries: id) }
+                let meta = await self.metadata.details(for: id, title: series.title,
+                                                       year: series.year, isSeries: true)
+                if series.backdropURL == nil, let url = meta?.backdropURL { ImageCache.shared.prefetch([url], size: .backdrop) }
+            case .movie(let id):
+                guard let movie = await self.repository.movie(id: id) else { return }
+                if let url = movie.backdropURL ?? movie.posterURL { ImageCache.shared.prefetch([url], size: .backdrop) }
+                guard !Task.isCancelled else { return }
+                let meta = await self.metadata.details(for: id, title: movie.title,
+                                                       year: movie.year, isSeries: false)
+                if movie.backdropURL == nil, let url = meta?.backdropURL { ImageCache.shared.prefetch([url], size: .backdrop) }
+            default:
+                return
+            }
+        }
+    }
+
+    private func loadEpisodes(forSeries id: CatalogID) async -> Series? {
         guard var series = await repository.series(id: id) else { return nil }
         if series.hasEpisodes { return series }
         guard let key = series.providerSeriesKey, let client = provider,

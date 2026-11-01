@@ -369,12 +369,37 @@ private struct SectionEntryFocus: ViewModifier {
     @Environment(\.isEnabled) private var isEnabled
     @FocusState private var focused: Bool
 
+    @Environment(\.onCardFocused) private var onCardFocused
+
     func body(content: Content) -> some View {
         content
             .focused($focused)
             .onChange(of: diveToken) { _, _ in
                 if isEntry && isEnabled { focused = true }
             }
+            .onChange(of: focused) { _, isFocused in
+                if isFocused { onCardFocused?() }
+            }
+    }
+}
+
+/// Called when the card a screen sets it on takes focus — used to warm a
+/// detail page before the click and to know how deep in a grid you are.
+private struct OnCardFocusedKey: EnvironmentKey {
+    static let defaultValue: (() -> Void)? = nil
+}
+
+extension EnvironmentValues {
+    var onCardFocused: (() -> Void)? {
+        get { self[OnCardFocusedKey.self] }
+        set { self[OnCardFocusedKey.self] = newValue }
+    }
+}
+
+extension View {
+    /// Run `action` whenever this card (its `sectionEntryTarget` control) gets focus.
+    func onCardFocused(_ action: @escaping () -> Void) -> some View {
+        environment(\.onCardFocused, action)
     }
 }
 
