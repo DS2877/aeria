@@ -123,7 +123,7 @@ final class HomeScreenshotTests: XCTestCase {
         sleep(2)
         remote.press(.down)          // Search (skipped — the keyboard owns focus)
         sleep(2)
-        for name in ["live-tv", "guide", "movies", "series", "history"] {
+        for name in ["live-tv", "guide", "movies", "series", "favorites", "history"] {
             remote.press(.down)
             sleep(3)
             remote.press(.select)
