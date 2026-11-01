@@ -163,6 +163,34 @@ final class HomeScreenshotTests: XCTestCase {
         noteFocus(app, "grid after second menu")
     }
 
+    /// Movies opens on the category overview; a genre tile opens that genre,
+    /// Menu returns to the overview.
+    func testCategoryBrowsing() {
+        let app = XCUIApplication()
+        app.launchArguments += ["-AeriaScreenshots", "-AeriaScreenshotSection", "movies"]
+        app.launch()
+        sleep(12)
+
+        let remote = XCUIRemote.shared
+        remote.press(.select)        // rail → into Movies (first tile)
+        sleep(2)
+        snap("40-movies-categories")
+        noteFocus(app, "categories entry")
+        remote.press(.select)        // open it
+        sleep(3)
+        snap("41-movies-category-open")
+        noteFocus(app, "category opened")
+        remote.press(.menu)          // back to the overview
+        sleep(3)
+        snap("42-movies-category-back")
+        noteFocus(app, "category menu")
+        remote.press(.down)
+        sleep(1)
+        remote.press(.down)
+        sleep(2)
+        snap("43-movies-quick-picks-and-grid")
+    }
+
     /// Menu on a detail screen goes back one step, not to the sidebar.
     func testMenuOnDetailGoesBackOneStep() {
         let app = XCUIApplication()
