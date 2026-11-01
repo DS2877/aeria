@@ -43,7 +43,10 @@ struct SidebarShell: View {
         }
     }
 
-    private static let primary: [Section] = [.home, .search, .liveTV, .guide, .movies, .series, .favorites, .history]
+    /// Search sits *above* Home: the app opens on Home, ↑ reaches Search, ↓
+    /// walks the sections — Search's keyboard no longer sits in the way of
+    /// moving down the rail.
+    private static let primary: [Section] = [.search, .home, .liveTV, .guide, .movies, .series, .favorites, .history]
 
     /// Rail widths. The content keeps a permanent `collapsed`-wide gutter; when
     /// the rail expands it draws over the gutter *and* the content scales back

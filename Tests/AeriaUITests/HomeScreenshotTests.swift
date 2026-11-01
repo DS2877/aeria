@@ -50,8 +50,15 @@ final class HomeScreenshotTests: XCTestCase {
         sleep(2)
         snap("09-sidebar")
 
+        // Search sits above Home.
+        remote.press(.up)
+        sleep(3)
+        snap("12-search")
+        remote.press(.down)          // back on Home
+        sleep(2)
+
         // Walk the sections down the rail (focus-driven: each one shows).
-        let sections = ["12-search", "13-live-tv", "14-guide", "15-movies", "16-series"]
+        let sections = ["13-live-tv", "14-guide", "15-movies", "16-series"]
         for name in sections {
             remote.press(.down)
             sleep(3)
@@ -119,9 +126,7 @@ final class HomeScreenshotTests: XCTestCase {
         sleep(12)
 
         let remote = XCUIRemote.shared
-        remote.press(.left)          // into the rail, on Home
-        sleep(2)
-        remote.press(.down)          // Search (skipped — the keyboard owns focus)
+        remote.press(.left)          // into the rail, on Home (Search is above it)
         sleep(2)
         for name in ["live-tv", "guide", "movies", "series", "favorites", "history"] {
             remote.press(.down)
