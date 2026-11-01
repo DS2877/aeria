@@ -476,7 +476,7 @@ public final class CatalogDatabase: @unchecked Sendable {
         try await read { conn in
             let (where_, params) = Self.movieWhere(filter, scope)
             let sql = "SELECT \(Self.movieCardColumns) FROM movie WHERE \(where_) " +
-                      "ORDER BY \(Self.orderClause(filter.sort)) LIMIT ? OFFSET ?"
+                      "ORDER BY \(Self.orderClause(filter)) LIMIT ? OFFSET ?"
             return try conn.query(sql, params + [.integer(Int64(pageSize)), .integer(Int64(page * pageSize))], Self.decodeMovie)
         }
     }
@@ -507,7 +507,7 @@ public final class CatalogDatabase: @unchecked Sendable {
         try await read { conn in
             let (where_, params) = Self.seriesWhere(filter, scope)
             let sql = "SELECT \(Self.seriesColumns) FROM series WHERE \(where_) " +
-                      "ORDER BY \(Self.orderClause(filter.sort)) LIMIT ? OFFSET ?"
+                      "ORDER BY \(Self.orderClause(filter)) LIMIT ? OFFSET ?"
             return try conn.query(sql, params + [.integer(Int64(pageSize)), .integer(Int64(page * pageSize))]) {
                 row in Self.decodeSeries(row, seasons: [])
             }
@@ -538,7 +538,7 @@ public final class CatalogDatabase: @unchecked Sendable {
         try await read { conn in
             let (where_, params) = Self.movieWhere(filter, scope)
             return try Self.anchorRows(conn, table: "movie", where_: where_, params: params,
-                                       order: Self.orderClause(filter.sort))
+                                       order: Self.orderClause(filter))
         }
     }
 
@@ -546,7 +546,7 @@ public final class CatalogDatabase: @unchecked Sendable {
         try await read { conn in
             let (where_, params) = Self.seriesWhere(filter, scope)
             return try Self.anchorRows(conn, table: "series", where_: where_, params: params,
-                                       order: Self.orderClause(filter.sort))
+                                       order: Self.orderClause(filter))
         }
     }
 
@@ -1103,8 +1103,36 @@ public final class CatalogDatabase: @unchecked Sendable {
         }
     }
 
+    private static func orderClause(_ filter: CatalogFilter) -> String {
+        if filter.sort == .forYou { return forYouOrder(filter.forYou ?? ForYouProfile()) }
+        return orderClause(filter.sort)
+    }
+
+    /// "For You": a score from your languages (audio beats subtitles; the first
+    /// language weighs most), the genres you watch most, freshness and picture
+    /// quality — then newest added. Values are inlined: language codes are two
+    /// letters and genres an enum, so nothing user-typed reaches the SQL.
+    static func forYouOrder(_ profile: ForYouProfile, now: Date = Date()) -> String {
+        var terms: [String] = []
+        for (i, lang) in profile.languages.prefix(2).enumerated() {
+            let needle = CatalogValues.needle(lang)
+            terms.append("(CASE WHEN instr(audio_langs, '\(needle)') > 0 THEN \(6 - 2 * i) " +
+                         "WHEN instr(sub_langs, '\(needle)') > 0 THEN \(3 - i) ELSE 0 END)")
+        }
+        for (i, genre) in profile.genres.prefix(3).enumerated() {
+            terms.append("(CASE WHEN instr(genres, '\(CatalogValues.needle(genre))') > 0 THEN \(4 - i) ELSE 0 END)")
+        }
+        let month = Int(now.addingTimeInterval(-30 * 86_400).timeIntervalSince1970)
+        let recentYear = Calendar(identifier: .gregorian).component(.year, from: now) - 3
+        terms.append("(CASE WHEN added_at > \(month) THEN 2 ELSE 0 END)")
+        terms.append("(CASE WHEN year >= \(recentYear) THEN 1 ELSE 0 END)")
+        terms.append("(CASE WHEN quality IN ('hd','fhd','uhd') THEN 1 ELSE 0 END)")
+        return "(" + terms.joined(separator: " + ") + ") DESC, added_at DESC, title_fold"
+    }
+
     private static func orderClause(_ sort: BrowseSort) -> String {
         switch sort {
+        case .forYou:         return "added_at DESC, title_fold"   // no profile: freshest
         // SQLite sorts NULL lowest, so `DESC` already puts undated rows last —
         // no `(x IS NULL)` lead term, which would hide the column from the
         // `*_visible_added` / `*_visible_year` indexes and force a full sort of

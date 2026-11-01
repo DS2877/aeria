@@ -444,6 +444,38 @@ public final class AppEnvironment {
     }
 
     private var episodeLoads: [CatalogID: Task<Series?, Never>] = [:]
+
+    /// What "For You" ranks Movies and Series by: your audio languages, then
+    /// your subtitle language (Swedish when nothing is set), and the three
+    /// genres you watch and heart most.
+    public func forYouProfile() async -> ForYouProfile {
+        let prefs = preferences.preferences
+        var languages = prefs.preferredAudioLanguages
+        if let sub = prefs.preferredSubtitleLanguage, !languages.contains(sub) { languages.append(sub) }
+        if languages.isEmpty, let swedish = Language(code: "sv") { languages = [swedish] }
+
+        let watched = watchProgress.history(limit: 80)
+        let favs = favorites.all()
+        let movieIDs = Array(Set(watched.filter { $0.kind == .movie }.map(\.itemID)
+                                 + favs.filter { $0.kind == .movie }.map(\.itemID)))
+        let seriesIDs = Array(Set(watched.filter { $0.kind == .series }.map(\.itemID)
+                                  + favs.filter { $0.kind == .series }.map(\.itemID)))
+        var counts: [Genre: Int] = [:]
+        if !movieIDs.isEmpty {
+            for m in await repository.movies(ids: movieIDs) {
+                for g in m.genres where g != .other { counts[g, default: 0] += 1 }
+            }
+        }
+        if !seriesIDs.isEmpty {
+            for s in await repository.series(ids: Array(seriesIDs.prefix(40))) {
+                for g in s.genres where g != .other { counts[g, default: 0] += 2 }   // a series is many evenings
+            }
+        }
+        let genres = counts
+            .sorted { $0.value != $1.value ? $0.value > $1.value : $0.key.rawValue < $1.key.rawValue }
+            .prefix(3).map(\.key)
+        return ForYouProfile(languages: languages, genres: Array(genres))
+    }
     private var warmTask: Task<Void, Never>?
 
     /// A card has had focus for a moment: get its detail page ready before the

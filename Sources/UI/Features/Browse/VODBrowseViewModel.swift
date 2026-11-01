@@ -21,6 +21,10 @@ public final class VODBrowseViewModel {
 
     private let repository: any CatalogQuerying
     private let watchProgress: WatchProgressStore
+    /// Supplies the "For You" ranking inputs; refreshed on every reload so
+    /// what you watched last changes the order next time.
+    public var forYouProvider: (@MainActor () async -> ForYouProfile)?
+    private var forYouProfile: ForYouProfile?
     private let pageSize = 60
     private var page = 0
     private var reloadTask: Task<Void, Never>?
@@ -86,6 +90,9 @@ public final class VODBrowseViewModel {
         page = 0
         canLoadMore = true
         let snapshotFilter = filter
+        if filter.sort == .forYou, let forYouProvider {
+            forYouProfile = await forYouProvider()
+        }
 
         // 1. Paint.
         await loadPage(replacing: true, filter: snapshotFilter)
@@ -157,13 +164,15 @@ public final class VODBrowseViewModel {
         isLoading = true
         defer { isLoading = false }
 
+        var query = filter
+        query.forYou = forYouProfile
         let newCards: [BrowseCard]
         switch kind {
         case .movies:
-            let movies = await repository.movies(filter: filter, page: page, pageSize: pageSize)
+            let movies = await repository.movies(filter: query, page: page, pageSize: pageSize)
             newCards = movies.map { BrowseCard(movie: $0, progress: progressFraction(for: $0.id)) }
         case .series:
-            let series = await repository.series(filter: filter, page: page, pageSize: pageSize)
+            let series = await repository.series(filter: query, page: page, pageSize: pageSize)
             newCards = series.map { BrowseCard(series: $0) }
         }
         guard !Task.isCancelled, filter == self.filter else { return }

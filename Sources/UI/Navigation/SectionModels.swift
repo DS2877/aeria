@@ -94,7 +94,11 @@ public final class SectionModels {
     private func makeVOD(_ kind: BrowseKind, _ env: AppEnvironment) -> VODBrowseViewModel {
         let model = VODBrowseViewModel(kind: kind, repository: env.repository,
                                        watchProgress: env.watchProgress)
-        model.filter.sort = env.preferences.preferences.defaultSort
+        // Earlier builds saved "Recently Added" as everyone's default; For
+        // You replaces it. A deliberately chosen A–Z / year sort is kept.
+        let saved = env.preferences.preferences.defaultSort
+        model.filter.sort = saved == .recentlyAdded ? .forYou : saved
+        model.forYouProvider = { [weak env] in await env?.forYouProfile() ?? ForYouProfile() }
         return model
     }
 

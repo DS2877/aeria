@@ -143,7 +143,7 @@ public struct UserPreferences: Codable, Sendable, Equatable {
         limitToRelevantRegions: Bool = true,
         channelRegionScope: ChannelRegionScope = .homeCountry,
         homeRows: [HomeRowKind] = HomeRowKind.defaultEnabled,
-        defaultSort: BrowseSort = .recentlyAdded,
+        defaultSort: BrowseSort = .forYou,
         autoPlayNextEpisode: Bool = true,
         aiAssistedSearch: Bool = false,
         hasOnboarded: Bool = false

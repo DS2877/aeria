@@ -32,7 +32,21 @@ public enum ChannelSort: String, CaseIterable, Sendable {
     }
 }
 
+/// What "For You" ranks by: your languages (most important first) and the
+/// genres you watch most.
+public struct ForYouProfile: Equatable, Sendable {
+    public var languages: [Language]
+    public var genres: [Genre]
+
+    public init(languages: [Language] = [], genres: [Genre] = []) {
+        self.languages = languages
+        self.genres = genres
+    }
+}
+
 public enum BrowseSort: String, CaseIterable, Sendable, Codable {
+    /// Your languages, then your genres, then fresh — the default.
+    case forYou
     case recentlyAdded
     case titleAscending
     case newest
@@ -40,6 +54,7 @@ public enum BrowseSort: String, CaseIterable, Sendable, Codable {
 
     public var label: String {
         switch self {
+        case .forYou:         return "For You"
         case .recentlyAdded:  return "Recently Added"
         case .titleAscending: return "A–Z"
         case .newest:         return "Newest"
@@ -58,6 +73,8 @@ public struct CatalogFilter: Equatable, Sendable {
     public var minQuality: VideoQuality?
     public var text: String
     public var sort: BrowseSort
+    /// Only read by `.forYou`. Not a filter — never narrows the list.
+    public var forYou: ForYouProfile?
 
     public init(
         genres: [Genre] = [],
@@ -68,8 +85,10 @@ public struct CatalogFilter: Equatable, Sendable {
         maxDurationMinutes: Int? = nil,
         minQuality: VideoQuality? = nil,
         text: String = "",
-        sort: BrowseSort = .titleAscending
+        sort: BrowseSort = .titleAscending,
+        forYou: ForYouProfile? = nil
     ) {
+        self.forYou = forYou
         self.genres = genres
         self.audioLanguages = audioLanguages
         self.subtitleLanguages = subtitleLanguages

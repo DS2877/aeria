@@ -87,6 +87,25 @@ final class CatalogDatabaseTests: XCTestCase {
         XCTAssertEqual(page0.first?.title, "Title 1")
     }
 
+    // MARK: - For You
+
+    func testForYouRanksYourLanguageAndGenresFirst() async throws {
+        let old = Date(timeIntervalSince1970: 1_600_000_000)
+        try await database.insertMovies([
+            movie("m1", "English Drama", genres: [.drama], added: old, audio: [.english], subs: []),
+            movie("m2", "Swedish Horror", genres: [.horror], added: old, audio: [.swedish], subs: []),
+            movie("m3", "English Horror, Swedish subs", genres: [.horror], added: old, audio: [.english], subs: [.swedish]),
+            movie("m4", "Swedish Drama", genres: [.drama], added: old, audio: [.swedish], subs: []),
+        ])
+        var filter = CatalogFilter.none
+        filter.sort = .forYou
+        filter.forYou = ForYouProfile(languages: [.swedish], genres: [.horror])
+        let page = try await database.movies(filter, .unfiltered, page: 0, pageSize: 10)
+        // Language + genre (10), subs + genre (7), language only (6), neither (0).
+        XCTAssertEqual(page.map(\.title), ["Swedish Horror", "English Horror, Swedish subs",
+                                           "Swedish Drama", "English Drama"])
+    }
+
     // MARK: - Filtering
 
     func testGenreFilter() async throws {

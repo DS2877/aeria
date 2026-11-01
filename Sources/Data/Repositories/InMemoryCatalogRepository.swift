@@ -316,7 +316,7 @@ public actor InMemoryCatalogRepository: CatalogQuerying {
                               _ rt: String, _ ry: Int?, _ ra: Date?,
                               _ sort: BrowseSort) -> Bool {
         switch sort {
-        case .recentlyAdded:
+        case .recentlyAdded, .forYou:   // tests / demo: For You ≈ freshest
             let l = la ?? .distantPast, r = ra ?? .distantPast
             if l != r { return l > r }
             return lt.localizedCompare(rt) == .orderedAscending
