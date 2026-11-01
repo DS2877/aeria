@@ -138,6 +138,31 @@ final class HomeScreenshotTests: XCTestCase {
         }
     }
 
+    /// Menu deep in the Movies grid jumps back to the first card; a second
+    /// Menu opens the sidebar on Movies.
+    func testMenuDeepInGridGoesToTopFirst() {
+        let app = XCUIApplication()
+        app.launchArguments += ["-AeriaScreenshots", "-AeriaScreenshotSection", "movies"]
+        app.launch()
+        sleep(12)
+
+        let remote = XCUIRemote.shared
+        remote.press(.select)        // rail → into the Movies grid
+        sleep(2)
+        remote.press(.down)
+        sleep(1)
+        remote.press(.down)
+        sleep(2)
+        noteFocus(app, "grid deep")
+        remote.press(.menu)
+        sleep(3)
+        snap("26-grid-back-to-top")
+        noteFocus(app, "grid after menu")
+        remote.press(.menu)
+        sleep(2)
+        noteFocus(app, "grid after second menu")
+    }
+
     /// Menu on a detail screen goes back one step, not to the sidebar.
     func testMenuOnDetailGoesBackOneStep() {
         let app = XCUIApplication()
