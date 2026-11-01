@@ -235,7 +235,7 @@ struct VODBrowseView: View {
                     Label("Surprise Me", systemImage: "shuffle")
                 }
                 .buttonStyle(SecondaryButtonStyle())
-                .accessibilityHint("Opens a random \(kind == .movies ? "film" : "show")\(model.filter.isNarrowed ? " that matches your filters" : "")")
+                .accessibilityHint("Opens a well-rated \(kind == .movies ? "film" : "show") picked for you\(model.filter.isNarrowed ? " that matches your filters" : "")")
 
                 Button {
                     showFilters = true
@@ -270,12 +270,8 @@ struct VODBrowseView: View {
 
     /// Open a random title that matches the current filter.
     private func surpriseMe(_ model: VODBrowseViewModel) async {
-        switch kind {
-        case .movies:
-            if let m = await env.repository.randomMovie(filter: model.filter) { path.append(.movie(m.id)) }
-        case .series:
-            if let s = await env.repository.randomSeries(filter: model.filter) { path.append(.series(s.id)) }
-        }
+        let ratings = await env.metadata.ratingsSnapshot()
+        if let route = await model.surprisePick(ratings: ratings) { path.append(route) }
     }
 
     // MARK: - Categories

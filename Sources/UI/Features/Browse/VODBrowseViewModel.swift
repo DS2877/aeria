@@ -59,6 +59,70 @@ public final class VODBrowseViewModel {
         filter = next
     }
 
+    /// Recent Surprise Me picks — not offered again for a while.
+    private var recentSurprises: [CatalogID] = []
+
+    /// "Surprise Me", but worth watching: drawn from the top of the For You
+    /// ranking within the current filter — with artwork and a description,
+    /// not already started, never a title TMDB rates poorly — and weighted
+    /// towards the well-rated and the best-ranked. Not the same pick twice in
+    /// a row.
+    public func surprisePick(ratings: [String: Double]) async -> AppRoute? {
+        var query = filter
+        query.sort = .forYou
+        if forYouProfile == nil, let forYouProvider { forYouProfile = await forYouProvider() }
+        query.forYou = forYouProfile
+
+        struct Candidate { let id: CatalogID; let route: AppRoute; let hasSynopsis: Bool; let rank: Int }
+        let pool: [Candidate]
+        switch kind {
+        case .movies:
+            pool = await repository.movies(filter: query, page: 0, pageSize: 120).enumerated()
+                .filter { $0.element.posterURL != nil }
+                .map { Candidate(id: $0.element.id, route: .movie($0.element.id),
+                                 hasSynopsis: !($0.element.synopsis ?? "").isEmpty, rank: $0.offset) }
+        case .series:
+            pool = await repository.series(filter: query, page: 0, pageSize: 120).enumerated()
+                .filter { $0.element.posterURL != nil }
+                .map { Candidate(id: $0.element.id, route: .series($0.element.id),
+                                 hasSynopsis: !($0.element.synopsis ?? "").isEmpty, rank: $0.offset) }
+        }
+
+        func score(_ c: Candidate) -> Double? {
+            if watchProgress.progress(for: c.id) != nil { return nil }       // already seen / started
+            if recentSurprises.contains(c.id) { return nil }
+            let rating = ratings[c.id.rawValue]
+            if let rating, rating < 6.0 { return nil }                       // known to be weak
+            var s = 120.0 - Double(c.rank)                                   // For You order
+            if let rating { s += (rating - 6.0) * 25 }                       // 7.5 ⇒ +37
+            if c.hasSynopsis { s += 15 }
+            return s
+        }
+        var ranked = pool.compactMap { c in score(c).map { (c, $0) } }.sorted { $0.1 > $1.1 }
+        if ranked.isEmpty, !recentSurprises.isEmpty {
+            // A small category: every good title was offered recently — start over.
+            recentSurprises.removeAll()
+            ranked = pool.compactMap { c in score(c).map { (c, $0) } }.sorted { $0.1 > $1.1 }
+        }
+        if ranked.isEmpty {   // nothing passes — fall back to the plain For You top
+            ranked = pool.map { ($0, 1.0) }
+        }
+        let top = Array(ranked.prefix(15))
+        guard !top.isEmpty else { return nil }
+        // Weighted draw: the better the score, the likelier.
+        let floor = (top.last?.1 ?? 0) - 1
+        let weights = top.map { max(1, $0.1 - floor) }
+        var roll = Double.random(in: 0..<weights.reduce(0, +))
+        var pick = top[0].0
+        for (candidate, weight) in zip(top.map(\.0), weights) {
+            if roll < weight { pick = candidate; break }
+            roll -= weight
+        }
+        recentSurprises.append(pick.id)
+        while recentSurprises.count > min(12, max(1, ranked.count / 2)) { recentSurprises.removeFirst() }
+        return pick.route
+    }
+
     /// The name of what's shown when it's one category ("Netflix", "Horror").
     public var categoryTitle: String? {
         if filter.collections.count == 1, filter.genres.isEmpty { return filter.collections[0] }
