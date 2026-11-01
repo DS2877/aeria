@@ -76,8 +76,13 @@ struct SeriesDetailView: View {
     }
 
     private func relatedSeries(to found: Series) async -> [RelatedItem] {
-        var picks = await env.repository
-            .similarSeries(to: found.id, genres: found.genres, limit: 18)
+        let pool = await env.repository.similarSeries(to: found.id, genres: found.genres, limit: 120)
+        let ratings = await env.metadata.ratingsSnapshot()
+        let order = RelatedRanker.rank(source: RelatedRanker.item(found),
+                                       candidates: pool.map(RelatedRanker.item),
+                                       ratings: ratings, limit: 18)
+        let byID = Dictionary(pool.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        var picks = order.compactMap { byID[$0] }
         if picks.isEmpty {
             picks = await env.repository.newestSeries(limit: 18).filter { $0.id != found.id }
         }

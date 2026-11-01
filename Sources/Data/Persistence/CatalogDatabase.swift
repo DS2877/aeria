@@ -913,15 +913,17 @@ public final class CatalogDatabase: @unchecked Sendable {
             let (clause, params) = Self.scopeClause(scope)
             let ph = Array(repeating: "?", count: genres.count).joined(separator: ",")
             let genreArgs = genres.map { SQLiteValue.text($0.rawValue) }
+            // A varied candidate pool — best genre overlap first, then a random
+            // spread (not always the newest) — that `RelatedRanker` narrows.
             // Restrict to titles that share at least one genre *before* scoring —
             // the correlated `shared` count then runs over that small candidate
             // set, not the whole visible library.
             let sql = """
-            SELECT \(Self.movieCardColumns), \
+            SELECT \(Self.movieColumns), \
             (SELECT count(*) FROM movie_genre g WHERE g.movie_id = movie.id AND g.genre IN (\(ph))) AS shared
             FROM movie WHERE \(clause) AND id <> ? \
             AND id IN (SELECT movie_id FROM movie_genre WHERE genre IN (\(ph)))
-            ORDER BY shared DESC, added_at DESC LIMIT ?
+            ORDER BY shared DESC, random() LIMIT ?
             """
             let args = params + genreArgs + [.text(id.rawValue)] + genreArgs + [.integer(Int64(limit))]
             return try conn.query(sql, args, Self.decodeMovie)
@@ -939,7 +941,7 @@ public final class CatalogDatabase: @unchecked Sendable {
             (SELECT count(*) FROM series_genre g WHERE g.series_id = series.id AND g.genre IN (\(ph))) AS shared
             FROM series WHERE \(clause) AND id <> ? \
             AND id IN (SELECT series_id FROM series_genre WHERE genre IN (\(ph)))
-            ORDER BY shared DESC, added_at DESC LIMIT ?
+            ORDER BY shared DESC, random() LIMIT ?
             """
             let args = params + genreArgs + [.text(id.rawValue)] + genreArgs + [.integer(Int64(limit))]
             return try conn.query(sql, args) { row in Self.decodeSeries(row, seasons: []) }
