@@ -103,7 +103,8 @@ public struct Normalizer: Sendable {
             seasons: [],
             providerSeriesKey: shell.providerKey,
             addedAt: shell.addedAt,
-            isAdult: AdultContentDetector.isAdult(name: shell.name, groupTitle: shell.groupTitle)
+            isAdult: AdultContentDetector.isAdult(name: shell.name, groupTitle: shell.groupTitle),
+            collection: CategoryMapper.vodCollection(from: shell.groupTitle)
         )
     }
 
@@ -155,7 +156,8 @@ public struct Normalizer: Sendable {
             directors: raw.director?.splitList() ?? [],
             streamURL: URL(string: raw.streamURL) ?? Self.placeholderURL,
             addedAt: raw.addedAt,
-            isAdult: AdultContentDetector.isAdult(name: raw.name, groupTitle: raw.groupTitle)
+            isAdult: AdultContentDetector.isAdult(name: raw.name, groupTitle: raw.groupTitle),
+            collection: CategoryMapper.vodCollection(from: raw.groupTitle)
         )
     }
 

@@ -57,6 +57,9 @@ public protocol CatalogQuerying: Sendable {
     // MARK: Facets
 
     func availableGenres() async -> [Genre]
+    /// Category browsing for Movies (`series == false`) or Series: the
+    /// provider's own sections and the genres, each with a count and artwork.
+    func browseCategories(series: Bool) async -> (collections: [BrowseCategory], genres: [BrowseCategory])
     func availableAudioLanguages() async -> [Language]
     func availableSubtitleLanguages() async -> [Language]
 

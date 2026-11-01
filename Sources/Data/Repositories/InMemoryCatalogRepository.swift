@@ -309,6 +309,30 @@ public actor InMemoryCatalogRepository: CatalogQuerying {
     }
 
     public func availableGenres() -> [Genre] { facetGenres }
+
+    public func browseCategories(series: Bool) -> (collections: [BrowseCategory], genres: [BrowseCategory]) {
+        let items: [(genres: [Genre], collection: String?, poster: URL?)] = series
+            ? catalog.series.map { ($0.genres, $0.collection, $0.posterURL) }
+            : catalog.movies.map { ($0.genres, $0.collection, $0.posterURL) }
+        var byGenre: [Genre: (Int, URL?)] = [:]
+        var byCollection: [String: (Int, URL?)] = [:]
+        for item in items {
+            for g in item.genres where g != .other {
+                let cur = byGenre[g] ?? (0, nil)
+                byGenre[g] = (cur.0 + 1, cur.1 ?? item.poster)
+            }
+            if let c = item.collection {
+                let cur = byCollection[c] ?? (0, nil)
+                byCollection[c] = (cur.0 + 1, cur.1 ?? item.poster)
+            }
+        }
+        let genres = byGenre.sorted { $0.value.0 != $1.value.0 ? $0.value.0 > $1.value.0 : $0.key.rawValue < $1.key.rawValue }
+            .map { BrowseCategory(kind: .genre($0.key), count: $0.value.0, artworkURL: $0.value.1) }
+        let collections = byCollection.filter { $0.value.0 >= 4 }
+            .sorted { $0.value.0 != $1.value.0 ? $0.value.0 > $1.value.0 : $0.key < $1.key }
+            .map { BrowseCategory(kind: .collection($0.key), count: $0.value.0, artworkURL: $0.value.1) }
+        return (collections, genres)
+    }
     public func availableAudioLanguages() -> [Language] { facetAudio }
     public func availableSubtitleLanguages() -> [Language] { facetSubtitles }
 
@@ -548,14 +572,14 @@ public actor InMemoryCatalogRepository: CatalogQuerying {
 
 extension CatalogFilter {
     func matches(movie m: Movie) -> Bool {
-        matchesCommon(
+        (collections.isEmpty || m.collection.map(collections.contains) == true) && matchesCommon(
             genres: m.genres, audio: m.audioLanguages, subs: m.subtitleLanguages,
             year: m.year, quality: m.quality, duration: m.durationMinutes, title: m.title
         )
     }
 
     func matches(series s: Series) -> Bool {
-        matchesCommon(
+        (collections.isEmpty || s.collection.map(collections.contains) == true) && matchesCommon(
             genres: s.genres, audio: s.audioLanguages, subs: s.subtitleLanguages,
             year: s.year, quality: s.quality, duration: nil, title: s.title
         )

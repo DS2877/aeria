@@ -358,6 +358,59 @@ public final class CatalogDatabase: @unchecked Sendable {
         return Genre.allCases.filter { raw.contains($0.rawValue) }
     }
 
+    // MARK: - Category browsing
+
+    /// The provider's sections that make good browsing collections: at least
+    /// `minimum` visible titles, biggest first, each with the newest poster in
+    /// it as its artwork.
+    public func collections(series: Bool, _ scope: Scope, minimum: Int = 4, limit: Int = 40) async throws -> [BrowseCategory] {
+        let table = series ? "series" : "movie"
+        let (where_, params) = Self.scopeClause(scope)
+        return try await read { conn in
+            try conn.query("""
+                SELECT collection, COUNT(*) AS n,
+                       (SELECT poster_url FROM \(table) p
+                        WHERE p.collection = t.collection AND p.poster_url IS NOT NULL
+                        ORDER BY p.added_at DESC LIMIT 1)
+                FROM \(table) t
+                WHERE collection IS NOT NULL AND \(where_)
+                GROUP BY collection HAVING n >= ?
+                ORDER BY n DESC, collection LIMIT ?
+                """, params + [.integer(Int64(minimum)), .integer(Int64(limit))]) { row in
+                BrowseCategory(kind: .collection(row.string(0)), count: row.int(1), artworkURL: row.url(2))
+            }
+        }
+    }
+
+    /// Every genre with visible titles, biggest first, with the newest poster.
+    public func genreCategories(series: Bool, _ scope: Scope) async throws -> [BrowseCategory] {
+        let table = series ? "series" : "movie"
+        let link = series ? "series_genre" : "movie_genre"
+        let idColumn = series ? "series_id" : "movie_id"
+        let (where_, params) = Self.scopeClause(scope)
+        let counted: [(String, Int)] = try await read { conn in
+            try conn.query("""
+                SELECT g.genre, COUNT(*) AS n FROM \(link) g
+                JOIN \(table) t ON t.id = g.\(idColumn)
+                WHERE \(where_.replacingOccurrences(of: "is_", with: "t.is_"))
+                GROUP BY g.genre ORDER BY n DESC
+                """, params) { ($0.string(0), $0.int(1)) }
+        }
+        var out: [BrowseCategory] = []
+        for (raw, count) in counted {
+            guard let genre = Genre(rawValue: raw), genre != .other else { continue }
+            let poster: URL? = try await read { conn in
+                try conn.queryOne("""
+                    SELECT t.poster_url FROM \(link) g JOIN \(table) t ON t.id = g.\(idColumn)
+                    WHERE g.genre = ? AND t.poster_url IS NOT NULL
+                    ORDER BY t.added_at DESC LIMIT 1
+                    """, [.text(raw)]) { $0.url(0) } ?? nil
+            }
+            out.append(BrowseCategory(kind: .genre(genre), count: count, artworkURL: poster))
+        }
+        return out
+    }
+
     public func presentLanguages(subtitles: Bool) async throws -> [Language] {
         let key = subtitles ? MetaKey.facetSubLanguages : MetaKey.facetAudioLanguages
         if let cached = try await metaList(key) {
@@ -1055,6 +1108,11 @@ public final class CatalogDatabase: @unchecked Sendable {
         to clauses: inout [String], params: inout [SQLiteValue],
         filter: CatalogFilter, genreTable: String, idColumn: String, hasDuration: Bool
     ) {
+        if !filter.collections.isEmpty {
+            let ph = Array(repeating: "?", count: filter.collections.count).joined(separator: ",")
+            clauses.append("collection IN (\(ph))")
+            params += filter.collections.map { SQLiteValue.text($0) }
+        }
         if !filter.genres.isEmpty {
             let ph = Array(repeating: "?", count: filter.genres.count).joined(separator: ",")
             clauses.append("id IN (SELECT \(idColumn) FROM \(genreTable) WHERE genre IN (\(ph)))")
@@ -1227,6 +1285,7 @@ public final class CatalogDatabase: @unchecked Sendable {
                 SQLiteValue(date: movie.addedAt),
                 SQLiteValue(movie.isAdult),
                 SQLiteValue(relevant),
+                SQLiteValue(movie.collection),
                 .integer(gen),
             ]
         }
@@ -1240,8 +1299,8 @@ public final class CatalogDatabase: @unchecked Sendable {
                 INSERT OR REPLACE INTO movie
                 (id, title, title_fold, year, duration_min, audio_langs, sub_langs, genres, quality,
                  country_code, poster_url, backdrop_url, synopsis, cast_list, directors, stream_url,
-                 added_at, is_adult, is_relevant, gen)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                 added_at, is_adult, is_relevant, collection, gen)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                 """, rows)
                 try conn.executeMany("DELETE FROM movie_genre WHERE movie_id = ?", genreClears)
                 try conn.executeMany("INSERT OR IGNORE INTO movie_genre (movie_id, genre) VALUES (?,?)", genreRows)
@@ -1274,6 +1333,7 @@ public final class CatalogDatabase: @unchecked Sendable {
                 SQLiteValue(date: show.addedAt),
                 SQLiteValue(show.isAdult),
                 SQLiteValue(relevant),
+                SQLiteValue(show.collection),
                 .integer(show.seasons.isEmpty ? 0 : 1),
                 .integer(gen),
             ]
@@ -1289,8 +1349,9 @@ public final class CatalogDatabase: @unchecked Sendable {
                 try conn.executeMany("""
                 INSERT OR REPLACE INTO series
                 (id, title, title_fold, year, audio_langs, sub_langs, genres, quality, country_code,
-                 poster_url, backdrop_url, synopsis, provider_key, added_at, is_adult, is_relevant, seasons_loaded, gen)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                 poster_url, backdrop_url, synopsis, provider_key, added_at, is_adult, is_relevant, collection,
+                 seasons_loaded, gen)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                 """, rows)
                 try conn.executeMany("DELETE FROM series_genre WHERE series_id = ?", genreClears)
                 try conn.executeMany("INSERT OR IGNORE INTO series_genre (series_id, genre) VALUES (?,?)", genreRows)

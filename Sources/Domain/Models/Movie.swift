@@ -30,6 +30,10 @@ public struct Movie: Identifiable, Hashable, Codable, Sendable {
 
     /// Best-effort adult-category flag (see `AdultContentDetector`).
     public var isAdult: Bool
+    /// The provider's own section for this title, tidied ("Netflix",
+    /// "Barnfilm", "4K") — what category browsing groups by. Write-side only:
+    /// rows read back from the store leave it nil.
+    public var collection: String? = nil
 
     public init(
         id: CatalogID,
@@ -48,8 +52,10 @@ public struct Movie: Identifiable, Hashable, Codable, Sendable {
         directors: [String] = [],
         streamURL: URL,
         addedAt: Date? = nil,
-        isAdult: Bool = false
+        isAdult: Bool = false,
+        collection: String? = nil
     ) {
+        self.collection = collection
         self.id = id
         self.title = title
         self.year = year

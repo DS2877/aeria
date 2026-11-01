@@ -17,7 +17,9 @@ enum CatalogSchema {
     ///     `is_adult`) so the region/adult-filtered browse and shelf queries
     ///     walk a tight index instead of scanning past the filtered-out bulk of
     ///     a large provider's dump.
-    static let version = 3
+    /// v4: `collection` (the provider's tidied section) on movie + series, for
+    ///     category browsing.
+    static let version = 4
 
     /// Bring `connection` up to `version`, wiping catalog data on any change.
     static func migrate(_ connection: SQLiteConnection) throws {
@@ -103,9 +105,11 @@ enum CatalogSchema {
         added_at     REAL,
         is_adult     INTEGER NOT NULL DEFAULT 0,
         is_relevant  INTEGER NOT NULL DEFAULT 1,
+        collection   TEXT,
         gen          INTEGER NOT NULL DEFAULT 0
     ) WITHOUT ROWID;
     CREATE INDEX movie_title_fold ON movie(title_fold);
+    CREATE INDEX movie_collection ON movie(collection);
     CREATE INDEX movie_added_at   ON movie(added_at);
     CREATE INDEX movie_gen        ON movie(gen);
     -- Visibility-led composites, one per browse/shelf sort order. The region +
@@ -139,10 +143,12 @@ enum CatalogSchema {
         added_at       REAL,
         is_adult       INTEGER NOT NULL DEFAULT 0,
         is_relevant    INTEGER NOT NULL DEFAULT 1,
+        collection     TEXT,
         seasons_loaded INTEGER NOT NULL DEFAULT 0,
         gen            INTEGER NOT NULL DEFAULT 0
     ) WITHOUT ROWID;
     CREATE INDEX series_title_fold ON series(title_fold);
+    CREATE INDEX series_collection ON series(collection);
     CREATE INDEX series_added_at   ON series(added_at);
     CREATE INDEX series_gen        ON series(gen);
     CREATE INDEX series_visible_added ON series(is_relevant, is_adult, added_at);

@@ -19,6 +19,8 @@ struct VODBrowseView: View {
     /// Bumped just after the scroll to the top, once the first card exists
     /// again (the lazy grid drops cards far off screen).
     @State private var focusTopToken = 0
+    /// A category was opened: focus its first title once its cards are in.
+    @State private var focusFirstAfterLoad = false
     @Environment(\.sectionDiveToken) private var shellDiveToken
 
     private let columns = Array(repeating: GridItem(.fixed(Metrics.posterWidth), spacing: Metrics.cardSpacing),
@@ -62,15 +64,25 @@ struct VODBrowseView: View {
         .onChange(of: env.catalogRevision) { _, revision in
             // Coalesced (280 ms) — the revision bumps repeatedly during import.
             models.markLoaded(kind == .movies ? .movies : .series, revision: revision)
-            model?.scheduleReload()
+            model?.scheduleReload(refreshFacets: true)
         }
     }
 
     /// Deep in the grid, Menu goes back to the first card; otherwise the
     /// default (the sidebar).
     private var menuAction: (() -> Void)? {
-        guard isDeepInGrid else { return nil }
-        return { backToTop() }
+        if isDeepInGrid { return { backToTop() } }
+        if let model, model.filter.isNarrowed {
+            return { model.clearFilters(); backToTop() }
+        }
+        return nil
+    }
+
+    /// The category overview (collections, genres, quick picks) shows above
+    /// the grid when nothing is narrowed — the way in to browsing.
+    private func showsCategories(_ model: VODBrowseViewModel) -> Bool {
+        !model.filter.isNarrowed && model.filter.text.isEmpty
+            && (!model.collections.isEmpty || !model.genreCategories.isEmpty)
     }
 
     private func backToTop() {
@@ -113,6 +125,11 @@ struct VODBrowseView: View {
                         )
                         .frame(minHeight: 400)
                     } else {
+                        let overview = showsCategories(model)
+                        if overview {
+                            categoryOverview(model)
+                        }
+                        gridHeading(model)
                         LazyVGrid(columns: columns, alignment: .leading, spacing: Metrics.gridSpacing) {
                             ForEach(model.cards) { card in
                                 PosterCard(
@@ -124,9 +141,12 @@ struct VODBrowseView: View {
                                     isNew: card.isNew,
                                     action: { path.append(card.route) }
                                 )
-                                .sectionEntryFocus(card.id == model.cards.first?.id)
+                                .sectionEntryFocus(!overview && card.id == model.cards.first?.id)
                                 .onCardFocused {
-                                    let deep = (model.cards.firstIndex(where: { $0.id == card.id }) ?? 0) >= columns.count
+                                    // Under the category rows, any grid card is
+                                    // "deep"; otherwise past the first row.
+                                    let deep = overview
+                                        || (model.cards.firstIndex(where: { $0.id == card.id }) ?? 0) >= columns.count
                                     if deep != isDeepInGrid { isDeepInGrid = deep }
                                     env.warmUp(card.route)
                                 }
@@ -143,6 +163,14 @@ struct VODBrowseView: View {
             .focusSection()
             .environment(\.sectionDiveToken, shellDiveToken &+ focusTopToken)
         }
+        .onChange(of: model.cards.first?.id) { _, _ in
+            guard focusFirstAfterLoad else { return }
+            focusFirstAfterLoad = false
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(120))
+                focusTopToken &+= 1
+            }
+        }
         .onChange(of: topToken) { _, _ in
             withAnimation(.easeInOut(duration: 0.25)) { proxy.scrollTo("vod-top", anchor: .top) }
             Task { @MainActor in
@@ -154,6 +182,7 @@ struct VODBrowseView: View {
             // A narrowing change (genre / language / year) resets the list —
             // snap to the top. A pure sort change keeps position.
             if old.isNarrowed != new.isNarrowed || old.genres != new.genres
+                || old.collections != new.collections
                 || old.audioLanguages != new.audioLanguages
                 || old.subtitleLanguages != new.subtitleLanguages {
                 withAnimation { proxy.scrollTo("vod-top", anchor: .top) }
@@ -193,7 +222,8 @@ struct VODBrowseView: View {
     private func header(_ model: VODBrowseViewModel, proxy: ScrollViewProxy) -> some View {
         VStack(alignment: .leading, spacing: Metrics.space2) {
             HStack(alignment: .firstTextBaseline, spacing: Metrics.space2) {
-                Text(kind.title).font(.dsTitle).accessibilityAddTraits(.isHeader)
+                Text(model.categoryTitle.map { "\(kind.title) · \($0)" } ?? kind.title)
+                    .font(.dsTitle).lineLimit(1).accessibilityAddTraits(.isHeader)
                 if !(model.isLoading && model.cards.isEmpty) {
                     Text("\(model.total)")
                         .font(.dsCardTitle).foregroundStyle(Palette.textTertiary)
@@ -216,23 +246,8 @@ struct VODBrowseView: View {
                 .buttonStyle(SecondaryButtonStyle())
             }
 
-            if !model.availableGenres.isEmpty {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: Metrics.space1) {
-                        ForEach(model.availableGenres, id: \.self) { genre in
-                            FilterChip(
-                                label: genre.displayName,
-                                isSelected: model.filter.genres.contains(genre)
-                            ) {
-                                toggleGenre(genre, model)
-                            }
-                        }
-                    }
-                    .padding(.vertical, Metrics.space1)
-                    .padding(.horizontal, 2)
-                }
-                .scrollClipDisabled()
-                .focusSection()
+            if model.filter.isNarrowed {
+                activeFilters(model)
             }
 
             letterRail(model, proxy: proxy)
@@ -261,6 +276,150 @@ struct VODBrowseView: View {
         case .series:
             if let s = await env.repository.randomSeries(filter: model.filter) { path.append(.series(s.id)) }
         }
+    }
+
+    // MARK: - Categories
+
+    private func openCategory(_ category: BrowseCategory, _ model: VODBrowseViewModel) {
+        focusFirstAfterLoad = true
+        model.open(category)
+    }
+
+    @ViewBuilder
+    private func categoryOverview(_ model: VODBrowseViewModel) -> some View {
+        let firstID = model.collections.first?.id ?? model.genreCategories.first?.id
+        VStack(alignment: .leading, spacing: Metrics.space4) {
+            if !model.collections.isEmpty {
+                tileRow(title: "Collections", subtitle: "From your provider") {
+                    ForEach(model.collections) { category in
+                        CollectionTile(category: category) { openCategory(category, model) }
+                            .sectionEntryFocus(category.id == firstID)
+                            .onCardFocused { if isDeepInGrid { isDeepInGrid = false } }
+                    }
+                }
+            }
+            if !model.genreCategories.isEmpty {
+                tileRow(title: "Genres", subtitle: nil) {
+                    ForEach(model.genreCategories) { category in
+                        GenreTile(category: category) { openCategory(category, model) }
+                            .sectionEntryFocus(category.id == firstID)
+                            .onCardFocused { if isDeepInGrid { isDeepInGrid = false } }
+                    }
+                }
+            }
+            quickPicks(model)
+        }
+        .padding(.bottom, Metrics.space3)
+    }
+
+    private func tileRow<Content: View>(title: String, subtitle: String?,
+                                        @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: Metrics.space2) {
+            HStack(alignment: .firstTextBaseline, spacing: Metrics.space2) {
+                Text(title).font(.dsSectionHeader).foregroundStyle(Palette.textPrimary)
+                if let subtitle {
+                    Text(subtitle).font(.dsCaption).foregroundStyle(Palette.textTertiary)
+                }
+            }
+            .padding(.horizontal, Metrics.screenMargin)
+            ScrollView(.horizontal, showsIndicators: false) {
+                LazyHStack(spacing: Metrics.cardSpacing) { content() }
+                    .padding(.horizontal, Metrics.screenMargin)
+                    .padding(.vertical, Metrics.space2)
+            }
+            .scrollClipDisabled()
+        }
+        .focusSection()
+    }
+
+    /// One-click filters a Swedish viewer reaches for: language, picture,
+    /// decade.
+    private func quickPicks(_ model: VODBrowseViewModel) -> some View {
+        let picks: [(String, String, (inout CatalogFilter) -> Void)] = [
+            ("Swedish audio", "speaker.wave.2.fill", { $0.audioLanguages = [.swedish] }),
+            ("Swedish subtitles", "captions.bubble.fill", { $0.subtitleLanguages = [.swedish] }),
+            ("Full HD & 4K", "4k.tv.fill", { $0.minQuality = .fhd }),
+            ("2020s", "calendar", { $0.minYear = 2020 }),
+            ("2010s", "calendar", { $0.minYear = 2010; $0.maxYear = 2019 }),
+            ("2000s", "calendar", { $0.minYear = 2000; $0.maxYear = 2009 }),
+            ("90s", "calendar", { $0.minYear = 1990; $0.maxYear = 1999 }),
+            ("Classics", "film.stack", { $0.maxYear = 1979 }),
+        ]
+        return VStack(alignment: .leading, spacing: Metrics.space2) {
+            Text("Quick picks").font(.dsSectionHeader).foregroundStyle(Palette.textPrimary)
+                .padding(.horizontal, Metrics.screenMargin)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: Metrics.space2) {
+                    ForEach(picks, id: \.0) { pick in
+                        Button {
+                            var next = CatalogFilter(sort: model.filter.sort)
+                            pick.2(&next)
+                            focusFirstAfterLoad = true
+                            model.filter = next
+                        } label: {
+                            Label(pick.0, systemImage: pick.1).font(.dsBody)
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                }
+                .padding(.horizontal, Metrics.screenMargin)
+                .padding(.vertical, Metrics.space2)
+            }
+            .scrollClipDisabled()
+        }
+        .focusSection()
+    }
+
+    /// "All Movies · For You" above the grid, or the category's count.
+    private func gridHeading(_ model: VODBrowseViewModel) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: Metrics.space2) {
+            Text(model.filter.isNarrowed ? "\(model.total.formatted()) titles" : "All \(kind.title)")
+                .font(.dsSectionHeader).foregroundStyle(Palette.textPrimary)
+            Text(model.filter.sort.label)
+                .font(.dsCaption).foregroundStyle(Palette.textTertiary)
+        }
+        .padding(.horizontal, Metrics.screenMargin)
+    }
+
+    /// What's narrowing the grid, each removable, plus "Show all".
+    private func activeFilters(_ model: VODBrowseViewModel) -> some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: Metrics.space1) {
+                Button {
+                    model.clearFilters()
+                    backToTop()
+                } label: {
+                    Label("All \(kind.title)", systemImage: "chevron.left")
+                }
+                .buttonStyle(SecondaryButtonStyle())
+                ForEach(model.filter.collections, id: \.self) { name in
+                    FilterChip(label: name, isSelected: true, showsRemoveIcon: true) {
+                        model.filter.collections.removeAll { $0 == name }
+                    }
+                }
+                ForEach(model.filter.genres, id: \.self) { genre in
+                    FilterChip(label: genre.displayName, isSelected: true, showsRemoveIcon: true) {
+                        toggleGenre(genre, model)
+                    }
+                }
+                ForEach(otherChips(model), id: \.self) { chip in
+                    FilterChip(label: chip, isSelected: true, showsRemoveIcon: false) { showFilters = true }
+                }
+            }
+            .padding(.vertical, Metrics.space1)
+            .padding(.horizontal, 2)
+        }
+        .scrollClipDisabled()
+        .focusSection()
+    }
+
+    /// Chips for the narrowing that isn't a category or genre (language,
+    /// years, quality) — they open Filters to change.
+    private func otherChips(_ model: VODBrowseViewModel) -> [String] {
+        var f = model.filter
+        f.collections = []
+        f.genres = []
+        return f.activeChips
     }
 
     private func toggleGenre(_ genre: Genre, _ model: VODBrowseViewModel) {

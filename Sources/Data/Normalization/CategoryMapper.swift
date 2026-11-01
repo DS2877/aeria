@@ -27,6 +27,58 @@ public enum CategoryMapper {
         return tidied.isEmpty ? "General" : tidied
     }
 
+    /// A provider VOD section as a browsable collection name: the market
+    /// tag ("SE |", "[SE]", "SWE:", "NORDIC -") is dropped and the rest tidied —
+    /// "SE | Netflix Filmer" → "Netflix Filmer". `nil` for empty or catch-all
+    /// sections ("Filmer", "Movies", "VOD", "All") that would just repeat the
+    /// whole list.
+    public static func vodCollection(from groupTitle: String?) -> String? {
+        guard var text = groupTitle?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty else { return nil }
+        let separators = CharacterSet(charactersIn: "|:-–—▎/")
+        // Strip leading market tags, repeatedly ("SE | NORDIC | Netflix").
+        let marketTags: Set<String> = ["se", "swe", "sv", "sweden", "sverige", "svenska", "svensk",
+                                       "nordic", "nordics", "norden", "scandinavia", "skandinavien",
+                                       "en", "eng", "english", "uk", "us", "usa", "multi", "vod",
+                                       // Section-type prefixes ("Movies | Horror").
+                                       "movies", "movie", "filmer", "film", "series", "serier", "tv series"]
+        for _ in 0..<3 {
+            var head = text
+            if head.hasPrefix("[") || head.hasPrefix("("), let close = head.firstIndex(where: { $0 == "]" || $0 == ")" }) {
+                let tag = head[head.index(after: head.startIndex)..<close].lowercased()
+                if marketTags.contains(tag.trimmingCharacters(in: .whitespaces)) {
+                    text = String(head[head.index(after: close)...])
+                        .trimmingCharacters(in: separators.union(.whitespaces))
+                    continue
+                }
+            }
+            guard let cut = head.rangeOfCharacter(from: separators) else { break }
+            let tag = head[..<cut.lowerBound].trimmingCharacters(in: .whitespaces).lowercased()
+            guard marketTags.contains(tag) else { break }
+            head = String(head[cut.upperBound...]).trimmingCharacters(in: separators.union(.whitespaces))
+            text = head
+        }
+        text = text.replacingOccurrences(of: "|", with: " ").collapsingWhitespace()
+            .trimmingCharacters(in: separators.union(.whitespaces))
+        let catchAll: Set<String> = ["", "filmer", "film", "movies", "movie", "serier", "serie", "series",
+                                     "tv series", "tv-serier", "vod", "all", "alla", "other", "others",
+                                     "övrigt", "ovrigt", "misc", "general"]
+        guard !catchAll.contains(text.lowercased()) else { return nil }
+        // A section that is just a genre ("Horror") is already a genre tile.
+        let lowered = text.lowercased()
+        if Genre.allCases.contains(where: { $0.displayName.lowercased() == lowered || $0.rawValue == lowered }) {
+            return nil
+        }
+        // SHOUTING sections read better in title case.
+        // SHOUTING sections read better in title case; short words stay as
+        // they are (HBO, SVT, TV4, 4K).
+        if text.count > 4, text == text.uppercased(), text.contains(where: \.isLetter) {
+            text = text.split(separator: " ").map { word in
+                word.filter(\.isLetter).count > 3 ? word.lowercased().capitalized : String(word)
+            }.joined(separator: " ")
+        }
+        return String(text.prefix(48))
+    }
+
     private static let countryTokens: [String: String] = [
         // Nordics
         "se": "SE", "sv": "SE", "swe": "SE", "sweden": "SE", "sverige": "SE", "swedish": "SE",

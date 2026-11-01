@@ -32,6 +32,39 @@ public enum ChannelSort: String, CaseIterable, Sendable {
     }
 }
 
+/// A browsable slice of Movies or Series — one of the provider's own sections
+/// ("Netflix", "Barnfilm") or a genre — with how many titles it holds and a
+/// poster to show on its tile.
+public struct BrowseCategory: Identifiable, Hashable, Sendable {
+    public enum Kind: Hashable, Sendable {
+        case collection(String)
+        case genre(Genre)
+    }
+    public let kind: Kind
+    public let count: Int
+    public let artworkURL: URL?
+
+    public init(kind: Kind, count: Int, artworkURL: URL?) {
+        self.kind = kind
+        self.count = count
+        self.artworkURL = artworkURL
+    }
+
+    public var id: String {
+        switch kind {
+        case .collection(let name): return "c:" + name
+        case .genre(let genre):     return "g:" + genre.rawValue
+        }
+    }
+
+    public var title: String {
+        switch kind {
+        case .collection(let name): return name
+        case .genre(let genre):     return genre.displayName
+        }
+    }
+}
+
 /// What "For You" ranks by: your languages (most important first) and the
 /// genres you watch most.
 public struct ForYouProfile: Equatable, Sendable {
@@ -65,6 +98,8 @@ public enum BrowseSort: String, CaseIterable, Sendable, Codable {
 
 public struct CatalogFilter: Equatable, Sendable {
     public var genres: [Genre]
+    /// Provider sections (`BrowseCategory.Kind.collection`) — any of them.
+    public var collections: [String] = []
     public var audioLanguages: [Language]
     public var subtitleLanguages: [Language]
     public var minYear: Int?
@@ -102,12 +137,13 @@ public struct CatalogFilter: Equatable, Sendable {
 
     /// Whether any narrowing filter is active (ignores sort + text).
     public var isNarrowed: Bool {
-        !genres.isEmpty || !audioLanguages.isEmpty || !subtitleLanguages.isEmpty
+        !genres.isEmpty || !collections.isEmpty || !audioLanguages.isEmpty || !subtitleLanguages.isEmpty
             || minYear != nil || maxYear != nil || maxDurationMinutes != nil || minQuality != nil
     }
 
     public var activeChips: [String] {
         var chips: [String] = []
+        chips += collections
         chips += genres.map(\.displayName)
         chips += audioLanguages.map { "\($0.displayName) audio" }
         chips += subtitleLanguages.map { "\($0.displayName) subs" }

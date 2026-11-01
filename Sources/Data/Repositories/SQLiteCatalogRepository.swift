@@ -168,6 +168,12 @@ public actor SQLiteCatalogRepository: CatalogQuerying {
 
     // MARK: - Facets
 
+    public func browseCategories(series: Bool) async -> (collections: [BrowseCategory], genres: [BrowseCategory]) {
+        let collections = await read([]) { try await database.collections(series: series, scope) }
+        let genres = await read([]) { try await database.genreCategories(series: series, scope) }
+        return (collections, genres)
+    }
+
     public func availableGenres() async -> [Genre] {
         await read([]) { try await database.presentGenres() }
     }

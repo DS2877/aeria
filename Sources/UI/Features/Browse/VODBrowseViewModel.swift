@@ -12,6 +12,9 @@ public final class VODBrowseViewModel {
     public private(set) var canLoadMore = true
 
     public private(set) var availableGenres: [Genre] = []
+    /// Category browsing: the provider's own sections and the genres.
+    public private(set) var collections: [BrowseCategory] = []
+    public private(set) var genreCategories: [BrowseCategory] = []
     public private(set) var availableAudio: [Language] = []
     public private(set) var availableSubtitles: [Language] = []
     /// A–Z jump targets — populated only when sorting alphabetically.
@@ -46,6 +49,23 @@ public final class VODBrowseViewModel {
         filter = CatalogFilter(sort: filter.sort)
     }
 
+    /// Show one category: replaces any other category or genre choice.
+    public func open(_ category: BrowseCategory) {
+        var next = CatalogFilter(sort: filter.sort)
+        switch category.kind {
+        case .collection(let name): next.collections = [name]
+        case .genre(let genre):     next.genres = [genre]
+        }
+        filter = next
+    }
+
+    /// The name of what's shown when it's one category ("Netflix", "Horror").
+    public var categoryTitle: String? {
+        if filter.collections.count == 1, filter.genres.isEmpty { return filter.collections[0] }
+        if filter.genres.count == 1, filter.collections.isEmpty { return filter.genres[0].displayName }
+        return nil
+    }
+
     /// Coming back from a detail screen, the only thing that can have changed is
     /// how far through something you are. Re-mapping the cards in place keeps
     /// scroll position and focus exactly where you left them — re-running the
@@ -67,8 +87,10 @@ public final class VODBrowseViewModel {
     /// Debounced — the filter UI calls this on every chip tap; only the settled
     /// filter runs a query. Also the catalog-revision path, so facets get a
     /// refresh on the next pass.
-    public func scheduleReload() {
-        facetsAreStale = true
+    /// `refreshFacets` (the library changed) also re-reads the genre / language
+    /// facets and the category tiles; a filter change doesn't need them.
+    public func scheduleReload(refreshFacets: Bool = false) {
+        if refreshFacets { facetsAreStale = true }
         reloadTask?.cancel()
         reloadTask = Task { [weak self] in
             try? await Task.sleep(for: .milliseconds(280))
@@ -128,6 +150,9 @@ public final class VODBrowseViewModel {
         // Facets describe the whole library, not the current filter, so they
         // only need refreshing while an import is still adding to it.
         if availableGenres.isEmpty || facetsAreStale {
+            let categories = await repository.browseCategories(series: kind == .series)
+            collections = categories.collections
+            genreCategories = categories.genres
             availableGenres = await repository.availableGenres()
             availableAudio = await repository.availableAudioLanguages()
             availableSubtitles = await repository.availableSubtitleLanguages()
