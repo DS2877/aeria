@@ -97,6 +97,16 @@ public enum BrowseSort: String, CaseIterable, Sendable, Codable {
 }
 
 public struct CatalogFilter: Equatable, Sendable {
+    /// Pure music (concerts, music videos) lives apart from films and series.
+    public enum Music: Equatable, Sendable {
+        /// The default: browsing, Home, More Like This.
+        case hidden
+        /// The "Music" entry.
+        case only
+        /// Search — a concert should still be findable by name.
+        case included
+    }
+    public var music: Music = .hidden
     public var genres: [Genre]
     /// Provider sections (`BrowseCategory.Kind.collection`) — any of them.
     public var collections: [String] = []
@@ -137,12 +147,13 @@ public struct CatalogFilter: Equatable, Sendable {
 
     /// Whether any narrowing filter is active (ignores sort + text).
     public var isNarrowed: Bool {
-        !genres.isEmpty || !collections.isEmpty || !audioLanguages.isEmpty || !subtitleLanguages.isEmpty
+        music == .only || !genres.isEmpty || !collections.isEmpty || !audioLanguages.isEmpty || !subtitleLanguages.isEmpty
             || minYear != nil || maxYear != nil || maxDurationMinutes != nil || minQuality != nil
     }
 
     public var activeChips: [String] {
         var chips: [String] = []
+        if music == .only { chips.append("Music") }
         chips += collections
         chips += genres.map(\.displayName)
         chips += audioLanguages.map { "\($0.displayName) audio" }
@@ -169,5 +180,6 @@ public struct CatalogFilter: Equatable, Sendable {
             text: intent.freeText,
             sort: sort
         )
+        music = .included
     }
 }

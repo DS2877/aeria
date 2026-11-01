@@ -60,6 +60,8 @@ public protocol CatalogQuerying: Sendable {
     /// Category browsing for Movies (`series == false`) or Series: the
     /// provider's own sections and the genres, each with a count and artwork.
     func browseCategories(series: Bool) async -> (collections: [BrowseCategory], genres: [BrowseCategory])
+    /// How many pure-music titles (concerts, music videos) there are.
+    func musicCount(series: Bool) async -> Int
     func availableAudioLanguages() async -> [Language]
     func availableSubtitleLanguages() async -> [Language]
 

@@ -382,6 +382,14 @@ public final class CatalogDatabase: @unchecked Sendable {
         }
     }
 
+    /// How many pure-music titles there are — sizes the "Music" entry.
+    public func musicCount(series: Bool, _ scope: Scope) async throws -> Int {
+        let (where_, params) = Self.scopeClause(scope, music: .only)
+        return try await read { conn in
+            try conn.scalarInt("SELECT count(*) FROM \(series ? "series" : "movie") WHERE \(where_)", params)
+        }
+    }
+
     /// Every genre with visible titles, biggest first, with the newest poster.
     public func genreCategories(series: Bool, _ scope: Scope) async throws -> [BrowseCategory] {
         let table = series ? "series" : "movie"
@@ -852,7 +860,7 @@ public final class CatalogDatabase: @unchecked Sendable {
 
     public func guideChannels(limit: Int, _ scope: Scope) async throws -> [Channel] {
         try await read { conn in
-            var clauses = [Self.scopeClause(scope).0]
+            var clauses = [Self.scopeClause(scope, vod: false).0]
             var params: [SQLiteValue] = []
             Self.appendChannelCountry(to: &clauses, params: &params, scope: scope)
             clauses.append("epg_id IS NOT NULL AND epg_id <> ''")
@@ -888,7 +896,7 @@ public final class CatalogDatabase: @unchecked Sendable {
 
     public func channelCandidates(text: String, _ scope: Scope, limit: Int) async throws -> [Channel] {
         try await read { conn in
-            let (clause, params) = Self.scopeClause(scope)
+            let (clause, params) = Self.scopeClause(scope, vod: false)
             // Every word, any order; within the viewer's channel scope.
             var clauses = [clause]
             var allParams = params
@@ -1061,15 +1069,35 @@ public final class CatalogDatabase: @unchecked Sendable {
     /// than scanning past the filtered-out bulk of a large provider's dump.
     /// Always a valid boolean expression — `"1"` when the scope constrains
     /// nothing.
-    private static func scopeClause(_ scope: Scope) -> (String, [SQLiteValue]) {
+    private static func scopeClause(_ scope: Scope, vod: Bool = true,
+                                    music: CatalogFilter.Music = .hidden) -> (String, [SQLiteValue]) {
         var parts: [String] = []
         if !scope.allRegions { parts.append("is_relevant = 1") }
         if !scope.showAdult { parts.append("is_adult = 0") }
+        if vod {
+            switch music {
+            case .hidden:   parts.append("NOT \(pureMusic)")
+            case .only:     parts.append(pureMusic)
+            case .included: break
+            }
+        }
         return (parts.isEmpty ? "1" : parts.joined(separator: " AND "), [])
     }
 
+    /// Pure music — concerts, music videos, karaoke — as opposed to films that
+    /// are *about* music (a music documentary or a biopic stays a film). Kept
+    /// out of Movies / Series / Home and reached through its own "Music"
+    /// entry. A title is pure music when its only genre is Music, or it sits in
+    /// a music / concert section; anything tagged Documentary is never.
+    static let pureMusic = """
+    (instr(genres, ',documentary,') = 0 AND (genres = ',music,' OR genres = ',music,other,' \
+    OR genres = ',other,music,' OR (collection IS NOT NULL AND (lower(collection) LIKE '%music%' \
+    OR lower(collection) LIKE '%musik%' OR lower(collection) LIKE '%concert%' \
+    OR lower(collection) LIKE '%konsert%' OR lower(collection) LIKE '%karaoke%'))))
+    """
+
     private static func movieWhere(_ filter: CatalogFilter, _ scope: Scope) -> (String, [SQLiteValue]) {
-        let (scopeExpr, scopeParams) = scopeClause(scope)
+        let (scopeExpr, scopeParams) = scopeClause(scope, music: filter.music)
         var clauses = [scopeExpr]
         var params = scopeParams
         appendCommon(to: &clauses, params: &params, filter: filter, genreTable: "movie_genre", idColumn: "movie_id", hasDuration: true)
@@ -1077,7 +1105,7 @@ public final class CatalogDatabase: @unchecked Sendable {
     }
 
     private static func seriesWhere(_ filter: CatalogFilter, _ scope: Scope) -> (String, [SQLiteValue]) {
-        let (scopeExpr, scopeParams) = scopeClause(scope)
+        let (scopeExpr, scopeParams) = scopeClause(scope, music: filter.music)
         var clauses = [scopeExpr]
         var params = scopeParams
         appendCommon(to: &clauses, params: &params, filter: filter, genreTable: "series_genre", idColumn: "series_id", hasDuration: false)
@@ -1085,7 +1113,7 @@ public final class CatalogDatabase: @unchecked Sendable {
     }
 
     private static func channelWhere(category: String?, _ scope: Scope) -> (String, [SQLiteValue]) {
-        let (scopeExpr, scopeParams) = scopeClause(scope)
+        let (scopeExpr, scopeParams) = scopeClause(scope, vod: false)
         var clauses = [scopeExpr]
         var params = scopeParams
         appendChannelCountry(to: &clauses, params: &params, scope: scope)

@@ -331,7 +331,7 @@ struct VODBrowseView: View {
     /// One-click filters a Swedish viewer reaches for: language, picture,
     /// decade.
     private func quickPicks(_ model: VODBrowseViewModel) -> some View {
-        let picks: [(String, String, (inout CatalogFilter) -> Void)] = [
+        var picks: [(String, String, (inout CatalogFilter) -> Void)] = [
             ("Swedish audio", "speaker.wave.2.fill", { $0.audioLanguages = [.swedish] }),
             ("Swedish subtitles", "captions.bubble.fill", { $0.subtitleLanguages = [.swedish] }),
             ("Full HD & 4K", "4k.tv.fill", { $0.minQuality = .fhd }),
@@ -341,6 +341,10 @@ struct VODBrowseView: View {
             ("90s", "calendar", { $0.minYear = 1990; $0.maxYear = 1999 }),
             ("Classics", "film.stack", { $0.maxYear = 1979 }),
         ]
+        if model.musicCount > 0 {
+            // Concerts and music videos live here, out of the main grid.
+            picks.append(("Music & concerts", "music.note", { $0.music = .only }))
+        }
         return VStack(alignment: .leading, spacing: Metrics.space2) {
             Text("Quick picks").font(.dsSectionHeader).foregroundStyle(Palette.textPrimary)
                 .padding(.horizontal, Metrics.screenMargin)

@@ -174,6 +174,10 @@ public actor SQLiteCatalogRepository: CatalogQuerying {
         return (collections, genres)
     }
 
+    public func musicCount(series: Bool) async -> Int {
+        await read(0) { try await database.musicCount(series: series, scope) }
+    }
+
     public func availableGenres() async -> [Genre] {
         await read([]) { try await database.presentGenres() }
     }

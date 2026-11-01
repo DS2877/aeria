@@ -50,3 +50,42 @@ final class CategoryBrowsingTests: XCTestCase {
         XCTAssertEqual(count, 2)
     }
 }
+
+/// Pure music (concerts, music videos) stays out of Movies but has its own
+/// entry; a music documentary stays a film; search still finds a concert.
+final class MusicSplitTests: XCTestCase {
+
+    func testPureMusicIsSeparatedFromMovies() async throws {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("music-\(UUID()).sqlite3")
+        defer {
+            for suffix in ["", "-wal", "-shm"] {
+                try? FileManager.default.removeItem(at: URL(fileURLWithPath: url.path + suffix))
+            }
+        }
+        let database = try CatalogDatabase(path: url)
+        let stream = URL(string: "https://example.test/s")!
+        try await database.insertMovies([
+            Movie(id: .init(rawValue: "film"), title: "A Film", genres: [.drama], streamURL: stream),
+            Movie(id: .init(rawValue: "concert"), title: "Live at Wembley", genres: [.music], streamURL: stream),
+            Movie(id: .init(rawValue: "mv"), title: "Hits 2024", genres: [.drama], streamURL: stream,
+                  collection: "Music Videos"),
+            Movie(id: .init(rawValue: "doc"), title: "Music Doc", genres: [.documentary, .music], streamURL: stream),
+            Movie(id: .init(rawValue: "biopic"), title: "Biopic", genres: [.drama, .music], streamURL: stream),
+        ])
+        let browse = try await database.movies(.none, .unfiltered, page: 0, pageSize: 50)
+        XCTAssertEqual(Set(browse.map(\.id.rawValue)), ["film", "doc", "biopic"])
+
+        var music = CatalogFilter.none
+        music.music = .only
+        let only = try await database.movies(music, .unfiltered, page: 0, pageSize: 50)
+        XCTAssertEqual(Set(only.map(\.id.rawValue)), ["concert", "mv"])
+        let count = try await database.musicCount(series: false, .unfiltered)
+        XCTAssertEqual(count, 2)
+
+        var search = CatalogFilter.none
+        search.music = .included
+        search.text = "wembley"
+        let found = try await database.movieCandidates(search, .unfiltered, limit: 10)
+        XCTAssertEqual(found.map(\.id.rawValue), ["concert"])
+    }
+}

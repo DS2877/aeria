@@ -15,6 +15,8 @@ public final class VODBrowseViewModel {
     /// Category browsing: the provider's own sections and the genres.
     public private(set) var collections: [BrowseCategory] = []
     public private(set) var genreCategories: [BrowseCategory] = []
+    /// Pure-music titles, kept out of the grid; reached through "Music".
+    public private(set) var musicCount = 0
     public private(set) var availableAudio: [Language] = []
     public private(set) var availableSubtitles: [Language] = []
     /// A–Z jump targets — populated only when sorting alphabetically.
@@ -125,6 +127,7 @@ public final class VODBrowseViewModel {
 
     /// The name of what's shown when it's one category ("Netflix", "Horror").
     public var categoryTitle: String? {
+        if filter.music == .only { return "Music" }
         if filter.collections.count == 1, filter.genres.isEmpty { return filter.collections[0] }
         if filter.genres.count == 1, filter.collections.isEmpty { return filter.genres[0].displayName }
         return nil
@@ -217,6 +220,7 @@ public final class VODBrowseViewModel {
             let categories = await repository.browseCategories(series: kind == .series)
             collections = categories.collections
             genreCategories = categories.genres
+            musicCount = await repository.musicCount(series: kind == .series)
             availableGenres = await repository.availableGenres()
             availableAudio = await repository.availableAudioLanguages()
             availableSubtitles = await repository.availableSubtitleLanguages()
