@@ -106,6 +106,22 @@ Hero 800 pt with slow push-in + first shelf overlapping its fade
 backdrop via `EnrichedArtwork(preferEnriched:)`); Top Rated → ranked Top 10
 (`RankedPosterCard`); `HomeRow.style`; snapshot v3.
 
+### 1e. 2026-11-01 batch (all CI-green, on main)
+- Detail pages paint at once; hover warm-up (episodes, TMDB, backdrop).
+- Grid Menu: deep → top → (category → overview) → sidebar.
+- Two-tier guide: get_short_epg now/next for 60 kept channels right after
+  channels (`RawStage.guidePreview`), XMLTV parse filtered to kept channels.
+- For You sort (default) for Movies/Series (`BrowseSort.forYou`,
+  `CatalogDatabase.forYouOrder`, `AppEnvironment.forYouProfile`).
+- Category browsing: schema v4 `collection` column (provider section,
+  `CategoryMapper.vodCollection`), Collections / Genres / Quick picks tiles.
+- Surprise Me: weighted pick from For You top, rating ≥ 6, unseen, poster.
+- More Like This: varied pool + `RelatedRanker` (genres, era, cast, rating,
+  diversity, dedupe).
+- Sidebar order: Search above Home.
+- "Drop foreign VOD at import" was already true (CatalogWriter filters).
+- Trailers: dropped by the owner.
+
 ## 2. Unverified on device — verify before building on top of it
 
 Ask the user to run the build, `⌘U`, and report. Likely compile-risk spots listed

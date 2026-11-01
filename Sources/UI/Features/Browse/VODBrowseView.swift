@@ -353,9 +353,9 @@ struct VODBrowseView: View {
                             focusFirstAfterLoad = true
                             model.filter = next
                         } label: {
-                            Label(pick.0, systemImage: pick.1).font(.dsBody)
+                            Label(pick.0, systemImage: pick.1)
                         }
-                        .buttonStyle(.bordered)
+                        .buttonStyle(SecondaryButtonStyle())
                     }
                 }
                 .padding(.horizontal, Metrics.screenMargin)
