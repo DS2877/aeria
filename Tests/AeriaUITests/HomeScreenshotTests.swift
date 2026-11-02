@@ -185,6 +185,12 @@ final class HomeScreenshotTests: XCTestCase {
         sleep(3)
         snap("41-movies-category-open")
         noteFocus(app, "category opened")
+        remote.press(.up)            // from the grid up to the controls row
+        sleep(2)
+        noteFocus(app, "category up")
+        snap("41b-category-controls")
+        remote.press(.down)
+        sleep(2)
         remote.press(.menu)          // back to the overview
         sleep(3)
         snap("42-movies-category-back")
