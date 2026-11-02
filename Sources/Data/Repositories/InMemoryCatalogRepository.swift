@@ -310,7 +310,11 @@ public actor InMemoryCatalogRepository: CatalogQuerying {
 
     public func availableGenres() -> [Genre] { facetGenres }
 
-    public func musicCount(series: Bool) -> Int { 0 }   // tests / demo: no music split
+    public func musicCount(series: Bool) -> Int { 0 }
+
+    // Demo / tests: the catalogue already carries its descriptions.
+    public func fillDetails(_ details: RawDetails, forMovie id: CatalogID) {}
+    public func fillDetails(_ details: RawDetails, forSeries id: CatalogID) {}   // tests / demo: no music split
 
     public func browseCategories(series: Bool) -> (collections: [BrowseCategory], genres: [BrowseCategory]) {
         let items: [(genres: [Genre], collection: String?, poster: URL?)] = series

@@ -101,10 +101,41 @@ public protocol ProviderClient: Sendable {
     /// Load the episodes for one series on demand. `seriesKey` is the value the
     /// adapter put in `RawSeriesShell.providerKey`. Default: none.
     func fetchEpisodes(seriesKey: String) async throws -> [RawSeriesEpisode]
+
+    /// The description, cast and backdrop for one title — big providers leave
+    /// them out of the bulk lists. Default: none.
+    func fetchDetails(_ request: DetailsRequest) async throws -> RawDetails?
+}
+
+/// Which title to fetch details for.
+public enum DetailsRequest: Sendable {
+    /// A film, by its stream URL (Xtream puts the VOD id in it).
+    case movie(streamURL: URL)
+    /// A series, by `Series.providerSeriesKey`.
+    case series(key: String)
+}
+
+/// Per-title details from the provider.
+public struct RawDetails: Sendable, Equatable {
+    public var plot: String?
+    public var cast: [String]
+    public var directors: [String]
+    public var backdropURL: URL?
+    public var durationMinutes: Int?
+
+    public init(plot: String?, cast: [String] = [], directors: [String] = [],
+                backdropURL: URL? = nil, durationMinutes: Int? = nil) {
+        self.plot = plot
+        self.cast = cast
+        self.directors = directors
+        self.backdropURL = backdropURL
+        self.durationMinutes = durationMinutes
+    }
 }
 
 public extension ProviderClient {
     func fetchEpisodes(seriesKey: String) async throws -> [RawSeriesEpisode] { [] }
+    func fetchDetails(_ request: DetailsRequest) async throws -> RawDetails? { nil }
 
     /// Convenience for callers that don't need progress.
     func fetchRawCatalog() async throws -> RawCatalog {

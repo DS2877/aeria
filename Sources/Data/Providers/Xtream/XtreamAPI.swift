@@ -17,6 +17,7 @@ struct XtreamAPI: Sendable {
         case series = "get_series"
         case seriesInfo = "get_series_info"
         case shortEPG = "get_short_epg"
+        case vodInfo = "get_vod_info"
     }
 
     init?(host: String, username: String, password: String) {
@@ -52,6 +53,9 @@ struct XtreamAPI: Sendable {
     /// A stream list limited to one category (`&category_id=`).
     func url(_ action: Action, categoryID: String) -> URL {
         apiURL(action: action, extra: [URLQueryItem(name: "category_id", value: categoryID)])
+    }
+    func vodInfoURL(vodID: String) -> URL {
+        apiURL(action: .vodInfo, extra: [URLQueryItem(name: "vod_id", value: vodID)])
     }
     func seriesInfoURL(seriesID: String) -> URL {
         apiURL(action: .seriesInfo, extra: [URLQueryItem(name: "series_id", value: seriesID)])

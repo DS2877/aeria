@@ -198,6 +198,36 @@ public struct XtreamProviderClient: ProviderClient {
         return result
     }
 
+    public func fetchDetails(_ request: DetailsRequest) async throws -> RawDetails? {
+        let details: XtreamDTO.Details?
+        switch request {
+        case .movie(let streamURL):
+            // …/movie/<user>/<pass>/<vod_id>.<ext>
+            let vodID = streamURL.deletingPathExtension().lastPathComponent
+            guard !vodID.isEmpty, vodID.allSatisfy(\.isNumber) else { return nil }
+            details = try await http.decode(XtreamDTO.VODInfo.self, from: api.vodInfoURL(vodID: vodID)).info?.value
+        case .series(let key):
+            details = try await http.decode(XtreamDTO.SeriesInfo.self, from: api.seriesInfoURL(seriesID: key)).info?.value
+        }
+        guard let details else { return nil }
+        return Self.rawDetails(details)
+    }
+
+    static func rawDetails(_ d: XtreamDTO.Details) -> RawDetails {
+        func names(_ text: String?) -> [String] {
+            (text ?? "").split(whereSeparator: { $0 == "," || $0 == "/" })
+                .map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+        }
+        let plot = (d.plot ?? d.description)?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return RawDetails(
+            plot: (plot?.isEmpty ?? true) ? nil : plot,
+            cast: Array(names(d.cast ?? d.actors).prefix(12)),
+            directors: Array(names(d.director).prefix(3)),
+            backdropURL: d.backdrop_path?.values.first.flatMap(URL.init(string:)),
+            durationMinutes: d.duration_secs.map { $0 / 60 }
+        )
+    }
+
     public func resolveStreamURL(for _: String, kind _: ContentKind) async throws -> URL {
         // Xtream stream URLs are deterministic; the catalog already carries them.
         throw ProviderError.streamUnavailable

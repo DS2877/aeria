@@ -162,6 +162,14 @@ public actor SQLiteCatalogRepository: CatalogQuerying {
         try? await database.replaceSeasons(seasons, seriesID: id)
     }
 
+    public func fillDetails(_ details: RawDetails, forMovie id: CatalogID) async {
+        try? await database.fillDetails(movieID: id, details)
+    }
+
+    public func fillDetails(_ details: RawDetails, forSeries id: CatalogID) async {
+        try? await database.fillDetails(seriesID: id, details)
+    }
+
     public func hasEpisodes(seriesID: CatalogID) async -> Bool {
         await read(false) { try await database.hasEpisodes(seriesID: seriesID) }
     }

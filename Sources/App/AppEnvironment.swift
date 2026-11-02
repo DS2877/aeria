@@ -444,6 +444,41 @@ public final class AppEnvironment {
     }
 
     private var episodeLoads: [CatalogID: Task<Series?, Never>] = [:]
+    private var detailLoads: [CatalogID: Task<Bool, Never>] = [:]
+    /// Titles whose details were already asked for this session.
+    private var detailsTried: Set<CatalogID> = []
+
+    /// Big providers leave the description, cast and backdrop out of their
+    /// film / series lists; fetch them for one title (once per session) and
+    /// store them. Returns true when something new was stored.
+    @discardableResult
+    public func ensureDetails(movie: Movie) async -> Bool {
+        guard (movie.synopsis ?? "").isEmpty else { return false }
+        return await loadDetails(id: movie.id, request: .movie(streamURL: movie.streamURL), series: false)
+    }
+
+    @discardableResult
+    public func ensureDetails(series: Series) async -> Bool {
+        guard (series.synopsis ?? "").isEmpty, let key = series.providerSeriesKey else { return false }
+        return await loadDetails(id: series.id, request: .series(key: key), series: true)
+    }
+
+    private func loadDetails(id: CatalogID, request: DetailsRequest, series: Bool) async -> Bool {
+        if let running = detailLoads[id] { return await running.value }
+        guard !detailsTried.contains(id), let client = provider else { return false }
+        detailsTried.insert(id)
+        let repository = self.repository
+        let task = Task<Bool, Never> {
+            guard let details = try? await client.fetchDetails(request) else { return false }
+            if series { await repository.fillDetails(details, forSeries: id) }
+            else { await repository.fillDetails(details, forMovie: id) }
+            return details.plot != nil || details.backdropURL != nil || !details.cast.isEmpty
+        }
+        detailLoads[id] = task
+        let stored = await task.value
+        detailLoads[id] = nil
+        return stored
+    }
 
     /// What "For You" ranks Movies and Series by: your audio languages, then
     /// your subtitle language (Swedish when nothing is set), and the three
@@ -493,6 +528,7 @@ public final class AppEnvironment {
                 if let url = series.backdropURL ?? series.posterURL { ImageCache.shared.prefetch([url], size: .backdrop) }
                 guard !Task.isCancelled else { return }
                 if !series.hasEpisodes { _ = await self.ensureEpisodes(forSeries: id) }
+                await self.ensureDetails(series: series)
                 let meta = await self.metadata.details(for: id, title: series.title,
                                                        year: series.year, isSeries: true)
                 if series.backdropURL == nil, let url = meta?.backdropURL { ImageCache.shared.prefetch([url], size: .backdrop) }
@@ -500,6 +536,7 @@ public final class AppEnvironment {
                 guard let movie = await self.repository.movie(id: id) else { return }
                 if let url = movie.backdropURL ?? movie.posterURL { ImageCache.shared.prefetch([url], size: .backdrop) }
                 guard !Task.isCancelled else { return }
+                await self.ensureDetails(movie: movie)
                 let meta = await self.metadata.details(for: id, title: movie.title,
                                                        year: movie.year, isSeries: false)
                 if movie.backdropURL == nil, let url = meta?.backdropURL { ImageCache.shared.prefetch([url], size: .backdrop) }

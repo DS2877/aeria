@@ -358,6 +358,36 @@ public final class CatalogDatabase: @unchecked Sendable {
         return Genre.allCases.filter { raw.contains($0.rawValue) }
     }
 
+    // MARK: - Per-title details (filled on demand)
+
+    /// Fill in what the bulk list left out — never overwrites what's there.
+    public func fillDetails(movieID: CatalogID, _ d: RawDetails) async throws {
+        try await write { conn in
+            _ = try conn.run("""
+                UPDATE movie SET
+                  synopsis     = CASE WHEN synopsis IS NULL OR synopsis = '' THEN ? ELSE synopsis END,
+                  cast_list    = CASE WHEN cast_list = '' THEN ? ELSE cast_list END,
+                  directors    = CASE WHEN directors = '' THEN ? ELSE directors END,
+                  backdrop_url = COALESCE(backdrop_url, ?),
+                  duration_min = COALESCE(duration_min, ?)
+                WHERE id = ?
+                """, [SQLiteValue(d.plot), .text(CatalogValues.encode(list: d.cast)),
+                      .text(CatalogValues.encode(list: d.directors)), SQLiteValue(d.backdropURL),
+                      SQLiteValue(d.durationMinutes), .text(movieID.rawValue)])
+        }
+    }
+
+    public func fillDetails(seriesID: CatalogID, _ d: RawDetails) async throws {
+        try await write { conn in
+            _ = try conn.run("""
+                UPDATE series SET
+                  synopsis     = CASE WHEN synopsis IS NULL OR synopsis = '' THEN ? ELSE synopsis END,
+                  backdrop_url = COALESCE(backdrop_url, ?)
+                WHERE id = ?
+                """, [SQLiteValue(d.plot), SQLiteValue(d.backdropURL), .text(seriesID.rawValue)])
+        }
+    }
+
     // MARK: - Category browsing
 
     /// The provider's sections that make good browsing collections: at least

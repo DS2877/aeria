@@ -52,6 +52,9 @@ public protocol CatalogQuerying: Sendable {
     func randomSeries(filter: CatalogFilter) async -> Series?
     /// Replace one series' episodes after an on-demand fetch (Xtream).
     func attachSeasons(_ seasons: [Season], toSeriesID id: CatalogID) async
+    /// Store on-demand details (description, cast, backdrop) for one title.
+    func fillDetails(_ details: RawDetails, forMovie id: CatalogID) async
+    func fillDetails(_ details: RawDetails, forSeries id: CatalogID) async
     func hasEpisodes(seriesID: CatalogID) async -> Bool
 
     // MARK: Facets

@@ -229,26 +229,12 @@ struct VODBrowseView: View {
                         .font(.dsCardTitle).foregroundStyle(Palette.textTertiary)
                 }
                 Spacer()
-                Button {
-                    Task { await surpriseMe(model) }
-                } label: {
-                    Label("Surprise Me", systemImage: "shuffle")
-                }
-                .buttonStyle(SecondaryButtonStyle())
-                .accessibilityHint("Opens a well-rated \(kind == .movies ? "film" : "show") picked for you\(model.filter.isNarrowed ? " that matches your filters" : "")")
-
-                Button {
-                    showFilters = true
-                } label: {
-                    Label(model.filter.isNarrowed ? "Filters · \(model.filter.activeChips.count)" : "Filters",
-                          systemImage: "line.3.horizontal.decrease")
-                }
-                .buttonStyle(SecondaryButtonStyle())
             }
 
-            if model.filter.isNarrowed {
-                activeFilters(model)
-            }
+            // The controls sit left-aligned in one row — ↑ from any column of
+            // the grid or the category rows reaches them (right-aligned, the
+            // focus engine found nothing above the left side of the screen).
+            controlsRow(model)
 
             letterRail(model, proxy: proxy)
         }
@@ -381,10 +367,42 @@ struct VODBrowseView: View {
         .padding(.horizontal, Metrics.screenMargin)
     }
 
-    /// What's narrowing the grid, each removable, plus "Show all".
-    private func activeFilters(_ model: VODBrowseViewModel) -> some View {
+    /// Surprise Me and Filters, then — inside a category — the way back and
+    /// what's narrowing the grid, each removable.
+    private func controlsRow(_ model: VODBrowseViewModel) -> some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: Metrics.space1) {
+                Button {
+                    Task { await surpriseMe(model) }
+                } label: {
+                    Label("Surprise Me", systemImage: "shuffle")
+                }
+                .buttonStyle(SecondaryButtonStyle())
+                .accessibilityHint("Opens a well-rated \(kind == .movies ? "film" : "show") picked for you\(model.filter.isNarrowed ? " that matches your filters" : "")")
+
+                Button {
+                    showFilters = true
+                } label: {
+                    Label(model.filter.isNarrowed ? "Filters · \(model.filter.activeChips.count)" : "Filters",
+                          systemImage: "line.3.horizontal.decrease")
+                }
+                .buttonStyle(SecondaryButtonStyle())
+
+                if model.filter.isNarrowed {
+                    narrowingChips(model)
+                }
+            }
+            .padding(.vertical, Metrics.space1)
+            .padding(.horizontal, 2)
+        }
+        .scrollClipDisabled()
+        .focusSection()
+    }
+
+    @ViewBuilder
+    private func narrowingChips(_ model: VODBrowseViewModel) -> some View {
+                Rectangle().fill(Palette.hairline).frame(width: 1, height: 36)
+                    .padding(.horizontal, Metrics.space1)
                 Button {
                     model.clearFilters()
                     backToTop()
@@ -405,12 +423,6 @@ struct VODBrowseView: View {
                 ForEach(otherChips(model), id: \.self) { chip in
                     FilterChip(label: chip, isSelected: true, showsRemoveIcon: false) { showFilters = true }
                 }
-            }
-            .padding(.vertical, Metrics.space1)
-            .padding(.horizontal, 2)
-        }
-        .scrollClipDisabled()
-        .focusSection()
     }
 
     /// Chips for the narrowing that isn't a category or genre (language,

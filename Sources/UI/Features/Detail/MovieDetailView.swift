@@ -45,6 +45,14 @@ struct MovieDetailView: View {
         movie = found
         notFound = found == nil && env.catalogComplete
         guard let found else { return }
+        // The provider's own description/cast/backdrop, when the bulk list
+        // left them out — refreshes the page when they land.
+        Task { @MainActor in
+            if await env.ensureDetails(movie: found),
+               let fresh = await env.repository.movie(id: movieID), !Task.isCancelled {
+                movie = fresh
+            }
+        }
         async let details = env.metadata.details(
             for: found.id, title: found.title, year: found.year, isSeries: false
         )

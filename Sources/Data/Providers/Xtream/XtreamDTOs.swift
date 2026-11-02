@@ -77,6 +77,53 @@ enum XtreamDTO {
         @LenientString var last_modified: String?
     }
 
+    /// Decodes `T` when it can, otherwise nil — panels send `"info": []`
+    /// when a title has no details, which must not sink the whole response.
+    struct Lenient<T: Decodable>: Decodable {
+        let value: T?
+        init(from decoder: Decoder) throws { value = try? T(from: decoder) }
+    }
+
+    /// One string or a list of them (`backdrop_path` comes as either).
+    struct StringList: Decodable {
+        let values: [String]
+        init(from decoder: Decoder) throws {
+            let c = try decoder.singleValueContainer()
+            if let list = try? c.decode([String].self) { values = list.filter { !$0.isEmpty }; return }
+            if let one = try? c.decode(String.self), !one.isEmpty { values = [one]; return }
+            values = []
+        }
+    }
+
+    /// The per-title detail block of `get_vod_info` / `get_series_info`.
+    struct Details: Decodable {
+        @LenientString var plot: String?
+        @LenientString var description: String?
+        @LenientString var cast: String?
+        @LenientString var actors: String?
+        @LenientString var director: String?
+        @LenientInt var duration_secs: Int?
+        let backdrop_path: StringList?
+
+        enum CodingKeys: String, CodingKey {
+            case plot, description, cast, actors, director, duration_secs, backdrop_path
+        }
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            _plot = try c.decode(LenientString.self, forKey: .plot)
+            _description = try c.decode(LenientString.self, forKey: .description)
+            _cast = try c.decode(LenientString.self, forKey: .cast)
+            _actors = try c.decode(LenientString.self, forKey: .actors)
+            _director = try c.decode(LenientString.self, forKey: .director)
+            _duration_secs = try c.decode(LenientInt.self, forKey: .duration_secs)
+            backdrop_path = try? c.decodeIfPresent(StringList.self, forKey: .backdrop_path)
+        }
+    }
+
+    struct VODInfo: Decodable {
+        let info: Lenient<Details>?
+    }
+
     struct SeriesInfo: Decodable {
         struct Episode: Decodable {
             @LenientString var id: String?
@@ -97,5 +144,6 @@ enum XtreamDTO {
         let seasons: [Season]?
         /// Keyed by season number as a string.
         let episodes: [String: [Episode]]?
+        let info: Lenient<Details>?
     }
 }

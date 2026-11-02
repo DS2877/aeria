@@ -51,6 +51,25 @@ final class XtreamCategoryImportTests: XCTestCase {
                        "no preview for the foreign channel")
     }
 
+    /// Descriptions come per title (get_vod_info / get_series_info) — and a
+    /// panel answering `"info": []` must not throw.
+    func testFetchesTitleDetails() async throws {
+        FakePanel.reset()
+        let config = ProviderConfiguration(kind: .xtream, displayName: "Fake",
+                                           xtreamHost: "http://fake.panel", xtreamUsername: "u")
+        let http = HTTPClient(protocolClasses: [FakePanel.self])
+        let client = try XCTUnwrap(XtreamProviderClient(configuration: config, password: "p", http: http))
+
+        let movie = try await client.fetchDetails(.movie(streamURL: URL(string: "http://fake.panel/movie/u/p/1.mp4")!))
+        XCTAssertEqual(movie?.plot, "A Swedish film.")
+        XCTAssertEqual(movie?.cast, ["Alicia Vikander", "Mikael Persbrandt"])
+        XCTAssertEqual(movie?.backdropURL?.absoluteString, "http://img.test/b.jpg")
+        XCTAssertTrue(FakePanel.requests.contains { $0.contains("action=get_vod_info") && $0.contains("vod_id=1") })
+
+        let series = try await client.fetchDetails(.series(key: "7"))
+        XCTAssertNil(series, "\"info\": [] means no details, not an error")
+    }
+
     func testShortEPGTitlesAreBase64Decoded() {
         XCTAssertEqual(XtreamProviderClient.decodeBase64("UmFwcG9ydA=="), "Rapport")
         XCTAssertEqual(XtreamProviderClient.decodeBase64("Plain title"), "Plain title")
@@ -156,6 +175,10 @@ final class FakePanel: URLProtocol {
             body = "[" + live.map {
                 #"{"stream_id":\#($0.0),"name":"\#($0.1)","category_id":"\#($0.2)","epg_channel_id":"\#($0.3)","num":\#($0.0)}"#
             }.joined(separator: ",") + "]"
+        case "get_vod_info":
+            body = #"{"info":{"plot":"A Swedish film.","cast":"Alicia Vikander, Mikael Persbrandt","director":"","backdrop_path":["http://img.test/b.jpg"]},"movie_data":{}}"#
+        case "get_series_info":
+            body = #"{"info":[],"episodes":{}}"#
         case "get_short_epg":
             let start = Int(Date().timeIntervalSince1970) - 600
             body = #"{"epg_listings":[{"title":"UmFwcG9ydA==","description":"","start_timestamp":"\#(start)","stop_timestamp":"\#(start + 1800)"}]}"#

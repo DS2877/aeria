@@ -56,6 +56,20 @@ struct SeriesDetailView: View {
         guard let found else { return }
         series = found
         selectedSeason = resumeEpisode(in: found)?.seasonNumber ?? found.seasons.first?.number
+        // The provider's description / backdrop when the list left them out.
+        Task { @MainActor in
+            if await env.ensureDetails(series: found),
+               let fresh = await env.repository.series(id: seriesID) {
+                // Keep any episodes loaded meanwhile.
+                if let current = series, fresh.seasons.isEmpty, !current.seasons.isEmpty {
+                    var merged = fresh
+                    merged.seasons = current.seasons
+                    series = merged
+                } else {
+                    series = fresh
+                }
+            }
+        }
 
         async let relatedPicks = relatedSeries(to: found)
         async let details = env.metadata.details(

@@ -64,11 +64,13 @@ public final class VODBrowseViewModel {
     /// Recent Surprise Me picks — not offered again for a while.
     private var recentSurprises: [CatalogID] = []
 
-    /// "Surprise Me", but worth watching: drawn from the top of the For You
-    /// ranking within the current filter — with artwork and a description,
-    /// not already started, never a title TMDB rates poorly — and weighted
-    /// towards the well-rated and the best-ranked. Not the same pick twice in
-    /// a row.
+    /// "Surprise Me": something worth watching that you wouldn't have
+    /// scrolled to. Drawn from a wide slice of the For You ranking (the top
+    /// 400 within the current filter) — but never the first rows you're
+    /// already looking at, never something started or watched, never a title
+    /// TMDB rates poorly, always with a poster. Odds lean towards the better
+    /// ranked and rated without collapsing onto the same few, and the last 40
+    /// picks aren't offered again.
     public func surprisePick(ratings: [String: Double]) async -> AppRoute? {
         var query = filter
         query.sort = .forYou
@@ -76,52 +78,52 @@ public final class VODBrowseViewModel {
         query.forYou = forYouProfile
 
         struct Candidate { let id: CatalogID; let route: AppRoute; let hasSynopsis: Bool; let rank: Int }
+        let poolSize = 400
         let pool: [Candidate]
         switch kind {
         case .movies:
-            pool = await repository.movies(filter: query, page: 0, pageSize: 120).enumerated()
+            pool = await repository.movies(filter: query, page: 0, pageSize: poolSize).enumerated()
                 .filter { $0.element.posterURL != nil }
                 .map { Candidate(id: $0.element.id, route: .movie($0.element.id),
                                  hasSynopsis: !($0.element.synopsis ?? "").isEmpty, rank: $0.offset) }
         case .series:
-            pool = await repository.series(filter: query, page: 0, pageSize: 120).enumerated()
+            pool = await repository.series(filter: query, page: 0, pageSize: poolSize).enumerated()
                 .filter { $0.element.posterURL != nil }
                 .map { Candidate(id: $0.element.id, route: .series($0.element.id),
                                  hasSynopsis: !($0.element.synopsis ?? "").isEmpty, rank: $0.offset) }
         }
+        // What's already in front of you isn't a surprise. (Only when there's
+        // enough else to choose from.)
+        let onScreen = pool.count > 60 ? Set(cards.prefix(20).map(\.id)) : []
 
-        func score(_ c: Candidate) -> Double? {
-            if watchProgress.progress(for: c.id) != nil { return nil }       // already seen / started
+        func weight(_ c: Candidate) -> Double? {
+            if onScreen.contains(c.id) { return nil }
+            if watchProgress.progress(for: c.id) != nil { return nil }
             if recentSurprises.contains(c.id) { return nil }
             let rating = ratings[c.id.rawValue]
-            if let rating, rating < 6.0 { return nil }                       // known to be weak
-            var s = 120.0 - Double(c.rank)                                   // For You order
-            if let rating { s += (rating - 6.0) * 25 }                       // 7.5 ⇒ +37
-            if c.hasSynopsis { s += 15 }
-            return s
+            if let rating, rating < 6.0 { return nil }
+            // Gentle lean, not a cliff: rank 0 ⇒ 2.0, rank 400 ⇒ 1.0.
+            var w = 2.0 - Double(c.rank) / Double(poolSize)
+            if let rating { w *= 1 + (rating - 6.0) / 3 }      // 7.5 ⇒ ×1.5, 9 ⇒ ×2
+            if c.hasSynopsis { w *= 1.2 }
+            return w
         }
-        var ranked = pool.compactMap { c in score(c).map { (c, $0) } }.sorted { $0.1 > $1.1 }
-        if ranked.isEmpty, !recentSurprises.isEmpty {
-            // A small category: every good title was offered recently — start over.
-            recentSurprises.removeAll()
-            ranked = pool.compactMap { c in score(c).map { (c, $0) } }.sorted { $0.1 > $1.1 }
+        var weighted = pool.compactMap { c in weight(c).map { (c, $0) } }
+        if weighted.isEmpty, !recentSurprises.isEmpty {
+            recentSurprises.removeAll()        // small category, all offered — start over
+            weighted = pool.compactMap { c in weight(c).map { (c, $0) } }
         }
-        if ranked.isEmpty {   // nothing passes — fall back to the plain For You top
-            ranked = pool.map { ($0, 1.0) }
-        }
-        let top = Array(ranked.prefix(15))
-        guard !top.isEmpty else { return nil }
-        // Weighted draw: the better the score, the likelier.
-        let floor = (top.last?.1 ?? 0) - 1
-        let weights = top.map { max(1, $0.1 - floor) }
-        var roll = Double.random(in: 0..<weights.reduce(0, +))
-        var pick = top[0].0
-        for (candidate, weight) in zip(top.map(\.0), weights) {
-            if roll < weight { pick = candidate; break }
-            roll -= weight
+        if weighted.isEmpty { weighted = pool.map { ($0, 1.0) } }
+        guard !weighted.isEmpty else { return nil }
+
+        var roll = Double.random(in: 0..<weighted.reduce(0) { $0 + $1.1 })
+        var pick = weighted[0].0
+        for (candidate, w) in weighted {
+            if roll < w { pick = candidate; break }
+            roll -= w
         }
         recentSurprises.append(pick.id)
-        while recentSurprises.count > min(12, max(1, ranked.count / 2)) { recentSurprises.removeFirst() }
+        while recentSurprises.count > min(40, max(1, weighted.count / 2)) { recentSurprises.removeFirst() }
         return pick.route
     }
 
